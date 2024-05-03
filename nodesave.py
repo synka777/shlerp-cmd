@@ -6,6 +6,7 @@ Released under the MIT license
 import sys
 import os
 import shutil
+from datetime import datetime
 
 
 def exists(path):
@@ -13,8 +14,6 @@ def exists(path):
     :param path: String referring to the path we want to check
     :return:
     """
-
-    #print(get_files('.'))
     return True if os.path.exists(path) else False
 
 
@@ -26,75 +25,66 @@ def get_files(path):
     return [file for file in os.listdir(path) if not os.path.islink(path + file)]
 
 
-def backup_node_modules(path):
+def get_dt():
     """
     This option will be useful if we want to use the cache option, to avoid downloading the npm packages again.
     :return:
     """
-    #TODO: check if the node_modules folder is already in the backup folder, if it already in it remove the old one
-    #TODO: backup the node_modules folder with project name and date in the folder name
+    return str(datetime.now().strftime('%d%m%Y%H%M%S'))
+
+
+def duplicate(path, dst, cache):
+    """Duplicates a project folder, processes all files and folders. node_modules will be processed last if cache = True
+    :param path, string that represents the project folder we want to duplicate
+    :param dst, string that represents the destination folder where we will be copy the project files
+    :param cache, boolean
+    """
+    element_list = get_files(path)
     try:
-        shutil.copy(path, '~/bkp/node_modules')
-        if os.path.exists('~/bkp/node_modules'):
-            print('Successfully backed up node_modules folder')
-    except Exception as e:
-        print('Copy: Error when parsing node_modules folder ', e)
-    return ''
+        os.mkdir(dst)
+        for elem in element_list:
+            orig = f'{path}/{elem}'
+            full_dst = f'{dst}/{elem}'
+            if os.path.isdir(orig):
+                if elem != 'node_modules':
+                    shutil.copytree(orig, full_dst, symlinks=True)
+                    if exists(full_dst):
+                        print(f'Done: {full_dst}/')
+            else:
+                shutil.copy(orig, full_dst)
+                if exists(full_dst):
+                    print(f'Done: {full_dst}')
 
+        print('Project duplicated', end='')
+        if cache:
+            print(', processing node_modules...')
+            shutil.copytree(f'{path}/node_modules', f'{dst}/node_modules', symlinks=True)
+            print(f'Done: {dst}/node_modules/')
 
-def restore_node_modules():
-    """
-
-    :return:
-    """
-    return ''
-
-
-def is_backed_up():
-    """
-
-    :return:
-    """
-    return ''
-
-
-def get_file_name():
-    """
-
-    :return:
-    """
-    return ''
+    except Exception as exc:
+        print('Copy: Error during the duplication', exc)
 
 
 def main(path, auto_inst, cache):
     package_file = exists(f'{path}/package.json')
-    #
+
     # 1. Check if the current folder is a javascript project
-    #
     if package_file:
         print('package.json found')
-        #
-        # 2. If so, backup node_modules folder
-        #
-        if cache:
-            node_modules = exists(f'{path}/node_modules')
+
+        node_modules = exists(f'{path}/node_modules')
+        dst = f'{path}_{get_dt()}'
+
+        if not cache:
+            # Copy everything except the node_modules folder
+            duplicate(path, dst, False)
+        else:
             if node_modules:
-                backup_node_modules()
+                duplicate(path, dst, True)
             else:
-                print('No node_modules found, will now proceed to copy')
-        #
-        # When the node_modules is backed up
-        #
-        is_backed_up()
+                duplicate(path, dst, False)
 
-        #
-        # Duplicate the folder with the current date and timestamp
-        #
-        get_file_name()
-
-        #
-        # Automatically do npm i if we choose to do so with a command-line parameter.
-        #
+        # TODO: Automatically do npm i if we choose to do so with a command-line parameter.
         if auto_inst:
             print('npm i')
     else:
