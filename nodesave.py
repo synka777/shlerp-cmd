@@ -12,7 +12,7 @@ from datetime import datetime
 def exists(path):
     """Checks if a file or folder exists
     :param path: String referring to the path we want to check
-    :return:
+    :return: A boolean
     """
     return True if os.path.exists(path) else False
 
@@ -28,9 +28,9 @@ def get_files(path):
 def get_dt():
     """
     This option will be useful if we want to use the cache option, to avoid downloading the npm packages again.
-    :return:
+    :return: A timestamp in string format
     """
-    return str(datetime.now().strftime('%d%m%Y%H%M%S'))
+    return str(datetime.now().strftime('%d%m%y%H%M%S'))
 
 
 def duplicate(path, dst, cache):
@@ -55,9 +55,9 @@ def duplicate(path, dst, cache):
                 if exists(full_dst):
                     print(f'Done: {full_dst}')
 
-        print('Project duplicated', end='')
+        print('OK - Project duplicated')
         if cache:
-            print(', processing node_modules...')
+            print('Processing node_modules...')
             shutil.copytree(f'{path}/node_modules', f'{dst}/node_modules', symlinks=True)
             print(f'Done: {dst}/node_modules/')
 
@@ -70,7 +70,7 @@ def main(path, auto_inst, cache):
 
     # 1. Check if the current folder is a javascript project
     if package_file:
-        print('package.json found')
+        print('OK - package.json found')
 
         node_modules = exists(f'{path}/node_modules')
         dst = f'{path}_{get_dt()}'
@@ -78,15 +78,14 @@ def main(path, auto_inst, cache):
         if not cache:
             # Copy everything except the node_modules folder
             duplicate(path, dst, False)
+            if auto_inst:
+                print('Installing npm packages...')
+                os.system('npm i')
         else:
             if node_modules:
                 duplicate(path, dst, True)
             else:
                 duplicate(path, dst, False)
-
-        # TODO: Automatically do npm i if we choose to do so with a command-line parameter.
-        if auto_inst:
-            print('npm i')
     else:
         print(f'{path} is not a node project')
         exit()
@@ -99,7 +98,7 @@ if __name__ == '__main__':
     for index, arg in enumerate(sys.argv):
         if arg == '--cache' or arg == '-c':
             use_cache = True
-        if arg == '--autoinstall' or '-ai':
+        if arg == '--autoinstall' or arg == '-ai':
             auto_install = True
         if arg == '--path' or arg == '-p':
             try:
