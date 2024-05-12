@@ -38,19 +38,21 @@ def build_archive(project_fld, dst_path):
     with ZipFile(f'{dst_path}.zip', 'w', ZIP_DEFLATED, compresslevel=9) as zip_archive:
         for filename in glob.iglob(project_fld + '/**', recursive=True):
             if 'node_modules' not in filename:
-                filename = filename.split(f'{project_fld}/')[1]
-                # If the filename is actually a symbolic link, use zip_info and zipfile.writestr()
-                # Source: https://gist.github.com/kgn/610907
-                if os.path.islink(filename):
-                    # http://www.mail-archive.com/python-list@python.org/msg34223.html
-                    zip_info = ZipInfo(filename)
-                    zip_info.create_system = 3
-                    # long type of hex val of '0xA1ED0000L',
-                    # say, symlink attr magic...
-                    zip_info.external_attr = 2716663808
-                    zip_archive.writestr(zip_info, os.readlink(f'./{filename}'))
-                else:
-                    zip_archive.write(f'./{filename}')
+                rel_filename = filename.split(f'{project_fld}/')[1]
+                # Temporary workaround for when we call the script from another path in a terminal
+                if rel_filename != '':
+                    # If the filename is actually a symbolic link, use zip_info and zipfile.writestr()
+                    # Source: https://gist.github.com/kgn/610907
+                    if os.path.islink(filename):
+                        # http://www.mail-archive.com/python-list@python.org/msg34223.html
+                        zip_info = ZipInfo(filename)
+                        zip_info.create_system = 3
+                        # long type of hex val of '0xA1ED0000L',
+                        # say, symlink attr magic...
+                        zip_info.external_attr = 2716663808
+                        zip_archive.writestr(zip_info, os.readlink(f'{filename}'))
+                    else:
+                        zip_archive.write(f'{filename}', arcname=f'{rel_filename}')
 
 
 def duplicate(elem_list, path, dst, cache):
