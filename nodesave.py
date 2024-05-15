@@ -36,10 +36,11 @@ def get_dt():
 
 def build_archive(project_fld, dst_path):
     with ZipFile(f'{dst_path}.zip', 'w', ZIP_DEFLATED, compresslevel=9) as zip_archive:
+        success = False
         for filename in glob.iglob(project_fld + '/**', recursive=True):
             if 'node_modules' not in filename:
                 rel_filename = filename.split(f'{project_fld}/')[1]
-                # Temporary workaround for when we call the script from another path in a terminal
+                # Exclude '' (listed by iglob when the script is executed from another path in a terminal)
                 if rel_filename != '':
                     # If the filename is actually a symbolic link, use zip_info and zipfile.writestr()
                     # Source: https://gist.github.com/kgn/610907
@@ -50,9 +51,24 @@ def build_archive(project_fld, dst_path):
                         # long type of hex val of '0xA1ED0000L',
                         # say, symlink attr magic...
                         zip_info.external_attr = 2716663808
-                        zip_archive.writestr(zip_info, os.readlink(f'{filename}'))
+                        try:
+                            zip_archive.writestr(zip_info, os.readlink(f'{filename}'))
+                            print(f'[{get_dt()}] Done: {rel_filename}')
+                            success = True
+                        except Exception as exc:
+                            print(f'[{get_dt()}] A problem happened while handling {rel_filename}: {exc}')
+
                     else:
-                        zip_archive.write(f'{filename}', arcname=f'{rel_filename}')
+                        try:
+                            zip_archive.write(f'{filename}', arcname=f'{rel_filename}')
+                            print(f'[{get_dt()}] Done: {rel_filename}')
+                            success = True
+                        except Exception as exc:
+                            print(f'[{get_dt()}] A problem happened while handling {rel_filename}: {exc}')
+        if success:
+            print(f'[{get_dt()}] ✅ Project archived: {dst_path}.zip')
+        else:
+            print(f'[{get_dt()}] Warning - Corrupted archive: {dst_path}.zip')
 
 
 def duplicate(elem_list, path, dst, cache):
@@ -70,17 +86,17 @@ def duplicate(elem_list, path, dst, cache):
             if os.path.isdir(orig):
                 shutil.copytree(orig, full_dst, symlinks=True)
                 if exists(full_dst):
-                    print(f'Done: {full_dst}/')
+                    print(f'[{get_dt()}] Done: {full_dst}/')
             else:
                 shutil.copy(orig, full_dst)
                 if exists(full_dst):
-                    print(f'Done: {full_dst}')
+                    print(f'[{get_dt()}] Done: {full_dst}')
 
-        print('OK - Project duplicated')
+        print(f'[{get_dt()}] ✅ Project duplicated in: {dst}/')
         if cache:
-            print('Processing node_modules...')
+            print(f'[{get_dt()}] Processing node_modules...')
             shutil.copytree(f'{path}/node_modules', f'{dst}/node_modules', symlinks=True)
-            print(f'Done: {dst}/node_modules/')
+            print(f'[{get_dt()}] Done: {dst}/node_modules/')
 
     except Exception as exc:
         print('Copy: Error during the duplication', exc)
@@ -91,16 +107,15 @@ def main(path, auto_inst, cache, archive):
 
     # 1. Check if the current folder is a javascript project
     if package_file:
-        print('OK - package.json found')
-        elements = get_files(path)
+        print(f'[{get_dt()}] ✅ package.json found')
         node_modules = exists(f'{path}/node_modules')
         dst = f'{path}_{get_dt()}'
-
         if archive:
             # If the -a switch is provided to the script, we use build_archive() and exclude the node_module folder
             build_archive(path, dst)
         else:
             # Else if we don't want an archive we will do a copy of the project instead
+            elements = get_files(path)
             if not cache:
                 # Copy everything except the node_modules folder
                 duplicate(elements, path, dst, False)
