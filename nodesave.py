@@ -22,9 +22,19 @@ def exists(path):
 def get_files(path):
     """Lists the files contained in a given folder, without symlinks
     :param path: String referring to the path that needs it's content to be listed
-    :return: A list of files only, symlinks not included
+    :return: A list of files, without any possible node_modules folder
     """
-    return [file for file in os.listdir(path) if not os.path.islink(path + file) and file != 'node_modules']
+    return [file for file in os.listdir(path) if file != 'node_modules']
+
+
+def rectify(path):
+    """rectifies the path, removes typos like double slashes and possible trailing slashes if there is one
+    :param path: String that corresponds to a folder to use in the script
+    :return: A string corresponding to the rectified path
+    """
+    while '//' in path:
+        path = path.replace('//', '/')
+    return [path[:-1] if path.endswith('/') else path][0]
 
 
 def get_dt():
@@ -53,32 +63,32 @@ def build_archive(project_fld, dst_path):
                         zip_info.external_attr = 2716663808
                         try:
                             zip_archive.writestr(zip_info, os.readlink(f'{filename}'))
-                            print(f'[{get_dt()}] Done: {rel_filename}')
+                            print(f'[{get_dt()}::archive] Done: {rel_filename}')
                             success = True
                         except Exception as exc:
-                            print(f'[{get_dt()}] A problem happened while handling {rel_filename}: {exc}')
+                            print(f'[{get_dt()}::archive] A problem happened while handling {rel_filename}: {exc}')
 
                     else:
                         try:
                             zip_archive.write(f'{filename}', arcname=f'{rel_filename}')
-                            print(f'[{get_dt()}] Done: {rel_filename}')
+                            print(f'[{get_dt()}::archive] Done: {rel_filename}')
                             success = True
                         except Exception as exc:
-                            print(f'[{get_dt()}] A problem happened while handling {rel_filename}: {exc}')
+                            print(f'[{get_dt()}::archive] A problem happened while handling {rel_filename}: {exc}')
         if success:
-            print(f'[{get_dt()}] ✅ Project archived: {dst_path}.zip')
+            print(f'[{get_dt()}::archive] ✅ Project archived: {dst_path}.zip')
         else:
-            print(f'[{get_dt()}] Warning - Corrupted archive: {dst_path}.zip')
+            print(f'[{get_dt()}::archive] Warning - Corrupted archive: {dst_path}.zip')
 
 
-def duplicate(elem_list, path, dst, cache):
+def duplicate(path, dst, cache):
     """Duplicates a project folder, processes all files and folders. node_modules will be processed last if cache = True
-    :param elem_list, list of strings that represents files and folder to process
     :param path, string that represents the project folder we want to duplicate
-    :param dst, string that represents the destination folder where we will be copy the project files
+    :param dst, string that represents the destination folder where we will copy the project files
     :param cache, boolean
     """
     try:
+        elem_list = get_files(path)
         os.mkdir(dst)
         for elem in elem_list:
             orig = f'{path}/{elem}'
@@ -86,47 +96,50 @@ def duplicate(elem_list, path, dst, cache):
             if os.path.isdir(orig):
                 shutil.copytree(orig, full_dst, symlinks=True)
                 if exists(full_dst):
-                    print(f'[{get_dt()}] Done: {full_dst}/')
+                    print(f'[{get_dt()}::copy] Done: {path}/{elem}')
             else:
                 shutil.copy(orig, full_dst)
                 if exists(full_dst):
-                    print(f'[{get_dt()}] Done: {full_dst}')
+                    print(f'[{get_dt()}::copy] Done: {path}/{elem}')
 
         print(f'[{get_dt()}] ✅ Project duplicated in: {dst}/')
         if cache:
-            print(f'[{get_dt()}] Processing node_modules...')
+            print(f'[{get_dt()}::copy] Processing node_modules...')
             shutil.copytree(f'{path}/node_modules', f'{dst}/node_modules', symlinks=True)
-            print(f'[{get_dt()}] Done: {dst}/node_modules/')
+            print(f'[{get_dt()}::copy] Done: {dst}/node_modules/')
 
     except Exception as exc:
         print('Copy: Error during the duplication', exc)
 
 
-def main(path, auto_inst, cache, archive):
+def main(path, output_fld, auto_inst, cache, archive):
     package_file = exists(f'{path}/package.json')
-
     # 1. Check if the current folder is a javascript project
     if package_file:
-        print(f'[{get_dt()}] ✅ package.json found')
+        print(f'[{get_dt()}] Package.json found')
         node_modules = exists(f'{path}/node_modules')
-        dst = f'{path}_{get_dt()}'
+        # If we don't have a particular output folder, use the same as the project
+        if output_fld != '':
+            project_name = path.split('/')[-1]
+            dst = f'{output_fld}/{project_name}_{get_dt()}'
+        else:
+            dst = f'{path}_{get_dt()}'
         if archive:
             # If the -a switch is provided to the script, we use build_archive() and exclude the node_module folder
             build_archive(path, dst)
         else:
             # Else if we don't want an archive we will do a copy of the project instead
-            elements = get_files(path)
             if not cache:
                 # Copy everything except the node_modules folder
-                duplicate(elements, path, dst, False)
+                duplicate(path, dst, False)
                 if auto_inst:
                     print('Installing npm packages...')
                     os.system('npm i')
             else:
                 if node_modules:
-                    duplicate(elements, path, dst, True)
+                    duplicate(path, dst, True)
                 else:
-                    duplicate(elements, path, dst, False)
+                    duplicate(path, dst, False)
     else:
         print(f'{path} is not a node project')
         exit()
@@ -134,7 +147,8 @@ def main(path, auto_inst, cache, archive):
 
 if __name__ == '__main__':
     auto_install = use_cache = is_archive = False
-    folder = ''
+    proj_fld = ''
+    output = ''
     for index, arg in enumerate(sys.argv):
         if arg == '--cache' or arg == '-c':
             use_cache = True
@@ -142,9 +156,14 @@ if __name__ == '__main__':
             auto_install = True
         if arg == '--path' or arg == '-p':
             try:
-                folder = sys.argv[index+1]
+                proj_fld = rectify(sys.argv[index + 1])
             except Exception as e:
                 print('Please provide a path to a evaluate for -p: ', e)
+        if arg == '--output' or arg == '-o':
+            try:
+                output = rectify(sys.argv[index + 1])
+            except Exception as e:
+                print('Please provide a path to a evaluate for -o: ', e)
         if arg == '--archive' or arg == '-a':
             is_archive = True
-    main(folder, auto_install, use_cache, is_archive)
+    main(proj_fld, output, auto_install, use_cache, is_archive)
