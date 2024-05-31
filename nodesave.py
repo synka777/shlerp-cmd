@@ -1,7 +1,7 @@
 """Node save script
 Copyright (c) 2023 Mathieu BARBE-GAYET
 All Rights Reserved.
-Released under the MIT license
+Released under the GNU Affero General Public License v3.0
 """
 import sys
 import os
@@ -11,6 +11,7 @@ from datetime import datetime
 from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
 from uuid import uuid4
 import random
+import time
 
 
 def exists(path):
@@ -47,7 +48,7 @@ def get_dt():
 
 
 def suid():
-    """ Generates a short uid
+    """Generates a short uid
     :return: A unique identifier with a fixed length of 6 characters
     """
     chunks = str(uuid4()).split('-')
@@ -61,12 +62,12 @@ def suid():
     return uid
 
 
-def build_archive(project_fld, dst_path, uid):
-    """
-
-    :param project_fld:
-    :param dst_path:
-    :param uid, text representing a short uid
+def build_archive(project_fld, dst_path, uid, started):
+    """Makes an archive of a given folder, without node_modules
+    :param project_fld: text, the folder we want to archive
+    :param dst_path: text, the location where we want to store the archive
+    :param uid: text representing a short uid
+    :param started: number representing the time when the script has been executed
     """
     with ZipFile(f'{dst_path}.zip', 'w', ZIP_DEFLATED, compresslevel=9) as zip_archive:
         fld_count = file_count = symlink_count = 0
@@ -110,17 +111,19 @@ def build_archive(project_fld, dst_path, uid):
                   f'Folders: {fld_count} - '
                   f'Files: {file_count} - '
                   f'Symbolic links: {symlink_count}')
-            print(f'[{uid}:{get_dt()}:arch] ✅ Project archived: {dst_path}.zip')
+            print(f'[{uid}:{get_dt()}:arch] ✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip')
         else:
             print(f'[{uid}:{get_dt()}:arch] Warning - Corrupted archive: {dst_path}.zip')
 
 
-def duplicate(path, dst, cache, uid):
+def duplicate(path, dst, cache, uid, started):
     """Duplicates a project folder, processes all files and folders. node_modules will be processed last if cache = True
     :param path, string that represents the project folder we want to duplicate
     :param dst, string that represents the destination folder where we will copy the project files
     :param cache, boolean
     :param uid, text representing a short uid
+    :param started: number representing the time when the script has been executed
+
     """
     try:
         fld_count = file_count = symlink_count = 0
@@ -143,22 +146,23 @@ def duplicate(path, dst, cache, uid):
                 if exists(full_dst):
                     print(f'[{uid}:{get_dt()}:copy] Done: {path}/{elem}')
         print('------------')
-        print(f'[{uid}:{get_dt()}:arch] '
-              f'Folders: {fld_count} - '
-              f'Files: {file_count} - '
-              f'Symbolic links: {symlink_count}')
-        print(f'[{uid}:{get_dt()}:copy] ✅ Project duplicated in: {dst}/')
+        # print(f'[{uid}:{get_dt()}:arch] '
+        #       f'Folders: {fld_count} - '
+        #       f'Files: {file_count} - '
+        #       f'Symbolic links: {symlink_count}')
+        print(f'[{uid}:{get_dt()}:copy] ✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/')
         if cache:
+            start_cache = time.time()
             print(f'[{uid}:{get_dt()}:copy] Processing node_modules...')
             shutil.copytree(f'{path}/node_modules', f'{dst}/node_modules', symlinks=True)
-            print(f'[{uid}:{get_dt()}:copy] Done: {dst}/node_modules/')
+            print(f'[{uid}:{get_dt()}:copy] Done ({"%.2f" % (time.time() - start_cache)}s): {dst}/node_modules/')
     except Exception as exc:
         print(f'[{uid}:{get_dt()}:copy] Error during the duplication', exc)
 
 
-def main(path, output_fld, auto_inst, cache, archive):
+def main(path, output_fld, auto_inst, cache, archive, started):
     package_file = exists(f'{path}/package.json')
-    # 1. Check if the current folder is a javascript project
+    # Check if the current folder is a javascript project
     if package_file:
         uid = suid()
         print(f'[{uid}:{get_dt()}] Package.json found')
@@ -171,20 +175,20 @@ def main(path, output_fld, auto_inst, cache, archive):
             dst = f'{path}_{get_dt()}'
         if archive:
             # If the -a switch is provided to the script, we use build_archive() and exclude the node_module folder
-            build_archive(path, dst, uid)
+            build_archive(path, dst, uid, started)
         else:
             # Else if we don't want an archive we will do a copy of the project instead
             if not cache:
                 # Copy everything except the node_modules folder
-                duplicate(path, dst, False, uid)
+                duplicate(path, dst, False, uid, started)
                 if auto_inst:
                     print('Installing npm packages...')
                     os.system('npm i')
             else:
                 if node_modules:
-                    duplicate(path, dst, True, uid)
+                    duplicate(path, dst, True, uid, started)
                 else:
-                    duplicate(path, dst, False, uid)
+                    duplicate(path, dst, False, uid, started)
     else:
         print(f'{path} is not a node project')
         exit()
@@ -194,6 +198,7 @@ if __name__ == '__main__':
     auto_install = use_cache = is_archive = False
     proj_fld = ''
     output = ''
+    start_time = time.time()
     for index, arg in enumerate(sys.argv):
         if arg == '--cache' or arg == '-c':
             use_cache = True
@@ -211,4 +216,4 @@ if __name__ == '__main__':
                 print('Please provide a path to a evaluate for -o: ', e)
         if arg == '--archive' or arg == '-a':
             is_archive = True
-    main(proj_fld, output, auto_install, use_cache, is_archive)
+    main(proj_fld, output, auto_install, use_cache, is_archive, start_time)
