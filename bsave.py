@@ -12,7 +12,8 @@ from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
 from uuid import uuid4
 import random
 import time
-
+import click
+from click import echo
 
 def exists(path):
     """Checks if a file or folder exists
@@ -123,7 +124,6 @@ def duplicate(path, dst, cache, uid, started):
     :param cache, boolean
     :param uid, text representing a short uid
     :param started: number representing the time when the script has been executed
-
     """
     try:
         fld_count = file_count = symlink_count = 0
@@ -160,60 +160,62 @@ def duplicate(path, dst, cache, uid, started):
         print(f'[{uid}:{get_dt()}:copy] Error during the duplication', exc)
 
 
-def main(path, output_fld, auto_inst, cache, archive, started):
-    package_file = exists(f'{path}/package.json')
+# TODO: See how to add params aliases
+@click.command()
+@click.option('--path', type=click.Path(),
+              help='The path of the project we want to backup. Please use absolute paths for now')
+@click.option('--output', type=click.Path(),
+              help='The location where we want to store the backup')
+@click.option('--cache', default=False,
+              help='Includes node_modules in the duplication. Only works in conjunction with -a',
+              is_flag=True)
+@click.option('--autoinstall', default=False,
+              help='Installs the node modules. Don\'t use it with -c.',
+              is_flag=True)
+@click.option('--archive', default=False,
+              help='Archives the project folder instead of making a copy of it',
+              is_flag=True)
+def main(path, output, cache, autoinstall, archive):
+    # TODO: add a docstring to populate the help page
+
+    start_time = time.time()
+    if path:
+        proj_fld = rectify(path)
+    else:
+        proj_fld = os.getcwd()
+
     # Check if the current folder is a javascript project
-    if package_file:
+    if exists(f'{proj_fld}/package.json'):
         uid = suid()
         print(f'[{uid}:{get_dt()}] Package.json found')
-        node_modules = exists(f'{path}/node_modules')
+        node_modules = exists(f'{proj_fld}/node_modules')
         # If we don't have a particular output folder, use the same as the project
-        if output_fld != '':
-            project_name = path.split('/')[-1]
-            dst = f'{output_fld}/{project_name}_{get_dt()}'
+        if output:
+            output = rectify(output)
+            project_name = proj_fld.split('/')[-1]
+            dst = f'{output}/{project_name}_{get_dt()}'
         else:
-            dst = f'{path}_{get_dt()}'
+            dst = f'{proj_fld}_{get_dt()}'
         if archive:
             # If the -a switch is provided to the script, we use build_archive() and exclude the node_module folder
-            build_archive(path, dst, uid, started)
+            build_archive(proj_fld, dst, uid, start_time)
         else:
             # Else if we don't want an archive we will do a copy of the project instead
             if not cache:
                 # Copy everything except the node_modules folder
-                duplicate(path, dst, False, uid, started)
-                if auto_inst:
+                duplicate(proj_fld, dst, False, uid, start_time)
+                if autoinstall:
                     print('Installing npm packages...')
                     os.system('npm i')
             else:
                 if node_modules:
-                    duplicate(path, dst, True, uid, started)
+                    duplicate(proj_fld, dst, True, uid, start_time)
                 else:
-                    duplicate(path, dst, False, uid, started)
+                    duplicate(proj_fld, dst, False, uid, start_time)
     else:
-        print(f'{path} is not a node project')
+        print(f'{proj_fld} is not a node project')
         exit()
 
 
 if __name__ == '__main__':
-    auto_install = use_cache = is_archive = False
-    proj_fld = ''
-    output = ''
-    start_time = time.time()
-    for index, arg in enumerate(sys.argv):
-        if arg == '--cache' or arg == '-c':
-            use_cache = True
-        if arg == '--autoinstall' or arg == '-ai':
-            auto_install = True
-        if arg == '--path' or arg == '-p':
-            try:
-                proj_fld = rectify(sys.argv[index + 1])
-            except Exception as e:
-                print('Please provide a path to a evaluate for -p: ', e)
-        if arg == '--output' or arg == '-o':
-            try:
-                output = rectify(sys.argv[index + 1])
-            except Exception as e:
-                print('Please provide a path to a evaluate for -o: ', e)
-        if arg == '--archive' or arg == '-a':
-            is_archive = True
-    main(proj_fld, output, auto_install, use_cache, is_archive, start_time)
+    main()
