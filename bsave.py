@@ -3,7 +3,6 @@ Copyright (c) 2023 Mathieu BARBE-GAYET
 All Rights Reserved.
 Released under the GNU Affero General Public License v3.0
 """
-import sys
 import os
 import shutil
 import glob
@@ -29,16 +28,6 @@ def get_files(path):
     :return: A list of files, without any possible node_modules folder
     """
     return [file for file in os.listdir(path) if file != 'node_modules']
-
-
-def rectify(path):
-    """rectifies the path, removes typos like double slashes and possible trailing slashes if there is one
-    :param path: String that corresponds to a folder to use in the script
-    :return: A string corresponding to the rectified path
-    """
-    while '//' in path:
-        path = path.replace('//', '/')
-    return [path[:-1] if path.endswith('/') else path][0]
 
 
 def get_dt():
@@ -90,10 +79,10 @@ def build_archive(project_fld, dst_path, uid, started):
                         zip_info.external_attr = 2716663808
                         try:
                             zip_archive.writestr(zip_info, os.readlink(f'{filename}'))
-                            print(f'[{uid}:{get_dt()}:arch] Done: {rel_filename}')
+                            echo(f'[{uid}:{get_dt()}:arch] Done: {rel_filename}')
                             success = True
                         except Exception as exc:
-                            print(f'[{uid}:{get_dt()}:arch] A problem happened while handling {rel_filename}: {exc}')
+                            echo(f'[{uid}:{get_dt()}:arch] A problem happened while handling {rel_filename}: {exc}')
 
                     else:
                         try:
@@ -102,19 +91,19 @@ def build_archive(project_fld, dst_path, uid, started):
                                 fld_count += 1
                             else:
                                 file_count += 1
-                            print(f'[{uid}:{get_dt()}:arch] Done: {rel_filename}')
+                            echo(f'[{uid}:{get_dt()}:arch] Done: {rel_filename}')
                             success = True
                         except Exception as exc:
-                            print(f'[{uid}:{get_dt()}:arch] A problem happened while handling {rel_filename}: {exc}')
+                            echo(f'[{uid}:{get_dt()}:arch] A problem happened while handling {rel_filename}: {exc}')
         if success:
-            print('------------')
-            print(f'[{uid}:{get_dt()}:arch] '
+            echo('------------')
+            echo(f'[{uid}:{get_dt()}:arch] '
                   f'Folders: {fld_count} - '
                   f'Files: {file_count} - '
                   f'Symbolic links: {symlink_count}')
-            print(f'[{uid}:{get_dt()}:arch] ✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip')
+            echo(f'[{uid}:{get_dt()}:arch] ✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip')
         else:
-            print(f'[{uid}:{get_dt()}:arch] Warning - Corrupted archive: {dst_path}.zip')
+            echo(f'[{uid}:{get_dt()}:arch] Warning - Corrupted archive: {dst_path}.zip')
 
 
 def duplicate(path, dst, cache, uid, started):
@@ -135,7 +124,7 @@ def duplicate(path, dst, cache, uid, started):
             if os.path.isdir(orig):
                 shutil.copytree(orig, full_dst, symlinks=True)
                 if exists(full_dst):
-                    print(f'[{uid}:{get_dt()}:copy] Done: {path}/{elem}')
+                    echo(f'[{uid}:{get_dt()}:copy] Done: {path}/{elem}')
                     fld_count += 1
             else:
                 shutil.copy(orig, full_dst)
@@ -144,54 +133,52 @@ def duplicate(path, dst, cache, uid, started):
                 else:
                     file_count += 1
                 if exists(full_dst):
-                    print(f'[{uid}:{get_dt()}:copy] Done: {path}/{elem}')
-        print('------------')
-        # print(f'[{uid}:{get_dt()}:arch] '
+                    echo(f'[{uid}:{get_dt()}:copy] Done: {path}/{elem}')
+        echo('------------')
+        # echo(f'[{uid}:{get_dt()}:arch] '
         #       f'Folders: {fld_count} - '
         #       f'Files: {file_count} - '
         #       f'Symbolic links: {symlink_count}')
-        print(f'[{uid}:{get_dt()}:copy] ✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/')
+        echo(f'[{uid}:{get_dt()}:copy] ✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/')
         if cache:
             start_cache = time.time()
-            print(f'[{uid}:{get_dt()}:copy] Processing node_modules...')
+            echo(f'[{uid}:{get_dt()}:copy] Processing node_modules...')
             shutil.copytree(f'{path}/node_modules', f'{dst}/node_modules', symlinks=True)
-            print(f'[{uid}:{get_dt()}:copy] Done ({"%.2f" % (time.time() - start_cache)}s): {dst}/node_modules/')
+            echo(f'[{uid}:{get_dt()}:copy] Done ({"%.2f" % (time.time() - start_cache)}s): {dst}/node_modules/')
     except Exception as exc:
-        print(f'[{uid}:{get_dt()}:copy] Error during the duplication', exc)
+        echo(f'[{uid}:{get_dt()}:copy] Error during the duplication', exc)
 
 
-# TODO: See how to add params aliases
 @click.command()
-@click.option('--path', type=click.Path(),
+@click.option('-p', '--path', type=click.Path(),
               help='The path of the project we want to backup. Please use absolute paths for now')
-@click.option('--output', type=click.Path(),
+@click.option('-o', '--output', type=click.Path(),
               help='The location where we want to store the backup')
-@click.option('--cache', default=False,
+@click.option('-c', '--cache', default=False,
               help='Includes node_modules in the duplication. Only works in conjunction with -a',
               is_flag=True)
-@click.option('--autoinstall', default=False,
+@click.option('-ai', '--autoinstall', default=False,
               help='Installs the node modules. Don\'t use it with -c.',
               is_flag=True)
-@click.option('--archive', default=False,
+@click.option('-a', '--archive', default=False,
               help='Archives the project folder instead of making a copy of it',
               is_flag=True)
 def main(path, output, cache, autoinstall, archive):
-    # TODO: add a docstring to populate the help page
-
+    """Dev projects backups made easy"""
     start_time = time.time()
     if path:
-        proj_fld = rectify(path)
+        proj_fld = os.path.abspath(path)
     else:
         proj_fld = os.getcwd()
 
     # Check if the current folder is a javascript project
     if exists(f'{proj_fld}/package.json'):
         uid = suid()
-        print(f'[{uid}:{get_dt()}] Package.json found')
+        echo(f'[{uid}:{get_dt()}] Package.json found')
         node_modules = exists(f'{proj_fld}/node_modules')
         # If we don't have a particular output folder, use the same as the project
         if output:
-            output = rectify(output)
+            output = os.path.abspath(output)
             project_name = proj_fld.split('/')[-1]
             dst = f'{output}/{project_name}_{get_dt()}'
         else:
@@ -205,15 +192,17 @@ def main(path, output, cache, autoinstall, archive):
                 # Copy everything except the node_modules folder
                 duplicate(proj_fld, dst, False, uid, start_time)
                 if autoinstall:
-                    print('Installing npm packages...')
+                    echo('Installing npm packages...')
                     os.system('npm i')
             else:
+                if autoinstall:
+                    echo(f'[{uid}:{get_dt()}] Info: -ai/--autoinstall discarded by -c/--cache')
                 if node_modules:
                     duplicate(proj_fld, dst, True, uid, start_time)
                 else:
                     duplicate(proj_fld, dst, False, uid, start_time)
     else:
-        print(f'{proj_fld} is not a node project')
+        echo(f'{proj_fld} is not a node project')
         exit()
 
 
