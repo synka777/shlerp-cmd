@@ -1,0 +1,94 @@
+[
+    {
+        "name": "Python",
+        "before": [],
+        "after": [],
+        "rules":{
+            "files":[
+                {
+                    "ext":["py"],
+                    "name":"",
+                    "content":[],
+                    "weight": 0.5
+                }
+            ],
+            "folders":[
+                {
+                    "name":"venv",
+                    "files":[".Python"],
+                    "weight": 2
+                }
+            ]
+
+        },
+        "exclusions": {
+            "files": [],
+            "folders": ["venv"]
+        }
+    },
+    {
+        "name": "Javascript",
+        "before": [],
+        "after": [],
+        "rules":{
+            "files":[
+                {
+                    "ext":["json"],
+                    "name":["tslint", "eslint", "package", "tsconfig"],
+                    "content":[],
+                    "weight": 2
+                },
+                {
+                    "ext":["js", "ts", "jsx"],
+                    "name":"",
+                    "content":[],
+                    "weight": 0.5
+                }
+            ],
+            "folders":[
+                {
+                    "name":"node_modules",
+                    "files":[],
+                    "weight": 2
+                }
+            ]
+
+        },
+        "exclusions": {
+            "files": [],
+            "folders": ["node_modules"]
+        }
+    },
+    {
+        "name": "Java",
+        "before": [],
+        "after": [],
+        "rules":{
+            "files":[
+                {
+                    "ext":["class, java, jar"],
+                    "name":[],
+                    "content":[],
+                    "weight": 0.5
+                },
+                {
+                    "ext":["gradle"],
+                    "name":"build",
+                    "content":[],
+                    "weight": 2
+                }
+            ],
+            "folders":[
+                {
+                    "name":"gradle/wrapper",
+                    "content":[],
+                    "weight": 2
+                }
+            ]
+        },
+        "exclusions": {
+            "files": [],
+            "folders": []
+        }
+    }
+]

@@ -1,55 +1,22 @@
-"""Node save script
+"""Backup script
 Copyright (c) 2023 Mathieu BARBE-GAYET
 All Rights Reserved.
 Released under the GNU Affero General Public License v3.0
 """
+import utils
 import os
 import shutil
 import glob
-from datetime import datetime
 from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
-from uuid import uuid4
-import random
 import time
 import click
 from click import echo
-
-def exists(path):
-    """Checks if a file or folder exists
-    :param path: String referring to the path we want to check
-    :return: A boolean
-    """
-    return True if os.path.exists(path) else False
+import json
 
 
-def get_files(path):
-    """Lists the files contained in a given folder, without symlinks
-    :param path: String referring to the path that needs it's content to be listed
-    :return: A list of files, without any possible node_modules folder
-    """
-    return [file for file in os.listdir(path) if file != 'node_modules']
+def auto_detect():
 
-
-def get_dt():
-    """
-    :return: A timestamp in string format
-    """
-    return str(datetime.now().strftime('%d%m%y%H%M%S'))
-
-
-def suid():
-    """Generates a short uid
-    :return: A unique identifier with a fixed length of 6 characters
-    """
-    chunks = str(uuid4()).split('-')
-    count = 0
-    uid = ''
-    while count < 3:
-        chunk = random.choice(chunks)
-        uid = f'{uid}{chunk[:2]}'
-        chunks.remove(chunk)
-        count += 1
-    return uid
+    return None
 
 
 def build_archive(project_fld, dst_path, uid, started):
@@ -79,10 +46,11 @@ def build_archive(project_fld, dst_path, uid, started):
                         zip_info.external_attr = 2716663808
                         try:
                             zip_archive.writestr(zip_info, os.readlink(f'{filename}'))
-                            echo(f'[{uid}:{get_dt()}:arch] Done: {rel_filename}')
+                            echo(f'[{uid}:{utils.get_dt()}:arch] Done: {rel_filename}')
                             success = True
                         except Exception as exc:
-                            echo(f'[{uid}:{get_dt()}:arch] A problem happened while handling {rel_filename}: {exc}')
+                            echo(f'[{uid}:{utils.get_dt()}:arch]'
+                                 f'A problem happened while handling {rel_filename}: {exc}')
 
                     else:
                         try:
@@ -91,19 +59,23 @@ def build_archive(project_fld, dst_path, uid, started):
                                 fld_count += 1
                             else:
                                 file_count += 1
-                            echo(f'[{uid}:{get_dt()}:arch] Done: {rel_filename}')
+                            echo(f'[{uid}:{utils.get_dt()}:arch] Done: {rel_filename}')
                             success = True
                         except Exception as exc:
-                            echo(f'[{uid}:{get_dt()}:arch] A problem happened while handling {rel_filename}: {exc}')
+                            echo(
+                                f'[{uid}:{utils.get_dt()}:arch] '
+                                f'A problem happened while handling {rel_filename}: {exc}')
         if success:
             echo('------------')
-            echo(f'[{uid}:{get_dt()}:arch] '
-                  f'Folders: {fld_count} - '
-                  f'Files: {file_count} - '
-                  f'Symbolic links: {symlink_count}')
-            echo(f'[{uid}:{get_dt()}:arch] ✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip')
+            echo(f'[{uid}:{utils.get_dt()}:arch] '
+                 f'Folders: {fld_count} - '
+                 f'Files: {file_count} - '
+                 f'Symbolic links: {symlink_count}')
+            echo(
+                f'[{uid}:{utils.get_dt()}:arch] '
+                f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip')
         else:
-            echo(f'[{uid}:{get_dt()}:arch] Warning - Corrupted archive: {dst_path}.zip')
+            echo(f'[{uid}:{utils.get_dt()}:arch] Warning - Corrupted archive: {dst_path}.zip')
 
 
 def duplicate(path, dst, cache, uid, started):
@@ -116,15 +88,15 @@ def duplicate(path, dst, cache, uid, started):
     """
     try:
         fld_count = file_count = symlink_count = 0
-        elem_list = get_files(path)
+        elem_list = utils.get_files(path)
         os.mkdir(dst)
         for elem in elem_list:
             orig = f'{path}/{elem}'
             full_dst = f'{dst}/{elem}'
             if os.path.isdir(orig):
                 shutil.copytree(orig, full_dst, symlinks=True)
-                if exists(full_dst):
-                    echo(f'[{uid}:{get_dt()}:copy] Done: {path}/{elem}')
+                if utils.exists(full_dst):
+                    echo(f'[{uid}:{utils.get_dt()}:copy] Done: {path}/{elem}')
                     fld_count += 1
             else:
                 shutil.copy(orig, full_dst)
@@ -132,21 +104,21 @@ def duplicate(path, dst, cache, uid, started):
                     symlink_count += 1
                 else:
                     file_count += 1
-                if exists(full_dst):
-                    echo(f'[{uid}:{get_dt()}:copy] Done: {path}/{elem}')
+                if utils.exists(full_dst):
+                    echo(f'[{uid}:{utils.get_dt()}:copy] Done: {path}/{elem}')
         echo('------------')
-        # echo(f'[{uid}:{get_dt()}:arch] '
+        # echo(f'[{uid}:{utils.get_dt()}:arch] '
         #       f'Folders: {fld_count} - '
         #       f'Files: {file_count} - '
         #       f'Symbolic links: {symlink_count}')
-        echo(f'[{uid}:{get_dt()}:copy] ✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/')
+        echo(f'[{uid}:{utils.get_dt()}:copy] ✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/')
         if cache:
             start_cache = time.time()
-            echo(f'[{uid}:{get_dt()}:copy] Processing node_modules...')
+            echo(f'[{uid}:{utils.get_dt()}:copy] Processing node_modules...')
             shutil.copytree(f'{path}/node_modules', f'{dst}/node_modules', symlinks=True)
-            echo(f'[{uid}:{get_dt()}:copy] Done ({"%.2f" % (time.time() - start_cache)}s): {dst}/node_modules/')
+            echo(f'[{uid}:{utils.get_dt()}:copy] Done ({"%.2f" % (time.time() - start_cache)}s): {dst}/node_modules/')
     except Exception as exc:
-        echo(f'[{uid}:{get_dt()}:copy] Error during the duplication', exc)
+        echo(f'[{uid}:{utils.get_dt()}:copy] Error during the duplication', exc)
 
 
 @click.command()
@@ -172,17 +144,17 @@ def main(path, output, cache, autoinstall, archive):
         proj_fld = os.getcwd()
 
     # Check if the current folder is a javascript project
-    if exists(f'{proj_fld}/package.json'):
-        uid = suid()
-        echo(f'[{uid}:{get_dt()}] Package.json found')
-        node_modules = exists(f'{proj_fld}/node_modules')
+    if utils.exists(f'{proj_fld}/package.json'):
+        uid = utils.suid()
+        echo(f'[{uid}:{utils.get_dt()}] Package.json found')
+        node_modules = utils.exists(f'{proj_fld}/node_modules')
         # If we don't have a particular output folder, use the same as the project
         if output:
             output = os.path.abspath(output)
             project_name = proj_fld.split('/')[-1]
-            dst = f'{output}/{project_name}_{get_dt()}'
+            dst = f'{output}/{project_name}_{utils.get_dt()}'
         else:
-            dst = f'{proj_fld}_{get_dt()}'
+            dst = f'{proj_fld}_{utils.get_dt()}'
         if archive:
             # If the -a switch is provided to the script, we use build_archive() and exclude the node_module folder
             build_archive(proj_fld, dst, uid, start_time)
@@ -196,7 +168,7 @@ def main(path, output, cache, autoinstall, archive):
                     os.system('npm i')
             else:
                 if autoinstall:
-                    echo(f'[{uid}:{get_dt()}] Info: -ai/--autoinstall discarded by -c/--cache')
+                    echo(f'[{uid}:{utils.get_dt()}] Info: -ai/--autoinstall discarded by -c/--cache')
                 if node_modules:
                     duplicate(proj_fld, dst, True, uid, start_time)
                 else:
