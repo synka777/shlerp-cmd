@@ -14,9 +14,47 @@ from click import echo
 import json
 
 
-def auto_detect():
-
-    return None
+def auto_detect(proj_fld):
+    with open("./rules.json", "r") as read_file:
+        rules = json.load(read_file)
+        for rule in rules:
+            echo(rule['name'])
+            extensions = []
+            weight = 0
+            for file in rule['detect']['files']:
+                names = file['name']
+                if len(names) == 1:
+                    # If only one filename, check its content
+                    # TODO
+                    print(names[0])
+                if len(names) > 1:
+                    for name in names:
+                        if name.startswith('*.'):
+                            extensions.append(name)
+                        else:
+                            print('file', f'{proj_fld}/{name}', f'+{file["weight"]}')
+                            # If the filename is not an extension, check for its existence right away
+                            if os.path.exists(f'{proj_fld}/{name}'):
+                                weight += file['weight']
+            for folder in rule['detect']['folders']:
+                name = folder['name']
+                # We check if each folder from the current rule exists
+                if os.path.exists(f'{proj_fld}/{name}/'):
+                    # If we don't have any files to check in the folder, increment the rule weight
+                    if not folder['files']:
+                        weight += folder['weight']
+                    else:
+                        # Make sure that each files from the folder element exists before increasing the weight
+                        match = True
+                        for file in folder['files']:
+                            print(f'{proj_fld}/{folder["name"]}/{file}')
+                            if not os.path.exists(f'{proj_fld}/{folder["name"]}/{file}'):
+                                match = False
+                                print(f'false: {proj_fld}/{folder["name"]}/{file}')
+                        if match:
+                            weight += folder['weight']
+            print('weight:', weight)
+    return ''
 
 
 def build_archive(project_fld, dst_path, uid, started):
@@ -143,39 +181,41 @@ def main(path, output, cache, autoinstall, archive):
     else:
         proj_fld = os.getcwd()
 
+    lang = auto_detect(proj_fld)
+    print(lang)
     # Check if the current folder is a javascript project
-    if utils.exists(f'{proj_fld}/package.json'):
-        uid = utils.suid()
-        echo(f'[{uid}:{utils.get_dt()}] Package.json found')
-        node_modules = utils.exists(f'{proj_fld}/node_modules')
-        # If we don't have a particular output folder, use the same as the project
-        if output:
-            output = os.path.abspath(output)
-            project_name = proj_fld.split('/')[-1]
-            dst = f'{output}/{project_name}_{utils.get_dt()}'
-        else:
-            dst = f'{proj_fld}_{utils.get_dt()}'
-        if archive:
-            # If the -a switch is provided to the script, we use build_archive() and exclude the node_module folder
-            build_archive(proj_fld, dst, uid, start_time)
-        else:
-            # Else if we don't want an archive we will do a copy of the project instead
-            if not cache:
-                # Copy everything except the node_modules folder
-                duplicate(proj_fld, dst, False, uid, start_time)
-                if autoinstall:
-                    echo('Installing npm packages...')
-                    os.system('npm i')
-            else:
-                if autoinstall:
-                    echo(f'[{uid}:{utils.get_dt()}] Info: -ai/--autoinstall discarded by -c/--cache')
-                if node_modules:
-                    duplicate(proj_fld, dst, True, uid, start_time)
-                else:
-                    duplicate(proj_fld, dst, False, uid, start_time)
-    else:
-        echo(f'{proj_fld} is not a node project')
-        exit()
+    # if utils.exists(f'{proj_fld}/package.json'):
+    #     uid = utils.suid()
+    #     echo(f'[{uid}:{utils.get_dt()}] Package.json found')
+    #     node_modules = utils.exists(f'{proj_fld}/node_modules')
+    #     # If we don't have a particular output folder, use the same as the project
+    #     if output:
+    #         output = os.path.abspath(output)
+    #         project_name = proj_fld.split('/')[-1]
+    #         dst = f'{output}/{project_name}_{utils.get_dt()}'
+    #     else:
+    #         dst = f'{proj_fld}_{utils.get_dt()}'
+    #     if archive:
+    #         # If the -a switch is provided to the script, we use build_archive() and exclude the node_module folder
+    #         build_archive(proj_fld, dst, uid, start_time)
+    #     else:
+    #         # Else if we don't want an archive we will do a copy of the project instead
+    #         if not cache:
+    #             # Copy everything except the node_modules folder
+    #             duplicate(proj_fld, dst, False, uid, start_time)
+    #             if autoinstall:
+    #                 echo('Installing npm packages...')
+    #                 os.system('npm i')
+    #         else:
+    #             if autoinstall:
+    #                 echo(f'[{uid}:{utils.get_dt()}] Info: -ai/--autoinstall discarded by -c/--cache')
+    #             if node_modules:
+    #                 duplicate(proj_fld, dst, True, uid, start_time)
+    #             else:
+    #                 duplicate(proj_fld, dst, False, uid, start_time)
+    # else:
+    #     echo(f'{proj_fld} is not a node project')
+    #     exit()
 
 
 if __name__ == '__main__':

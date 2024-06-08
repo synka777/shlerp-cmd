@@ -1,94 +1,100 @@
 [
     {
-        "name": "Python",
-        "before": [],
-        "after": [],
-        "rules":{
+        "name":"Python",
+        "detect":{
             "files":[
                 {
-                    "ext":["py"],
-                    "name":"",
-                    "content":[],
-                    "weight": 0.5
+                    "name":["*.py"],
+                    "content":"",
+                    "weight":0.5
+                },
+                {
+                    "name":["main.py", "utils.py"],
+                    "content":"",
+                    "weight":0.5
                 }
             ],
             "folders":[
                 {
                     "name":"venv",
                     "files":[".Python"],
-                    "weight": 2
+                    "weight":4
                 }
             ]
 
         },
-        "exclusions": {
-            "files": [],
-            "folders": ["venv"]
+        "actions":{
+            "before":[],
+            "after":[],
+            "exclude":{
+                "files":[],
+                "folders":["venv"]
+            }
         }
     },
     {
-        "name": "Javascript",
-        "before": [],
-        "after": [],
-        "rules":{
+        "name":"Javascript",
+        "detect":{
             "files":[
                 {
-                    "ext":["json"],
-                    "name":["tslint", "eslint", "package", "tsconfig"],
-                    "content":[],
-                    "weight": 2
+                    "name":["tslint.json", "eslint.json", "package.json", "tsconfig.json"],
+                    "content":"",
+                    "weight":4
                 },
                 {
-                    "ext":["js", "ts", "jsx"],
-                    "name":"",
-                    "content":[],
-                    "weight": 0.5
+                    "name":["*.js", "*.ts", "*.jsx"],
+                    "content":"",
+                    "weight":0.5
                 }
             ],
             "folders":[
                 {
                     "name":"node_modules",
                     "files":[],
-                    "weight": 2
+                    "weight":2
                 }
             ]
 
         },
-        "exclusions": {
-            "files": [],
-            "folders": ["node_modules"]
+        "actions":{
+            "before":[],
+            "after":[],
+            "exclude":{
+                "files":[],
+                "folders":["node_modules"]
+            }
         }
     },
     {
-        "name": "Java",
-        "before": [],
-        "after": [],
-        "rules":{
+        "name":"Java",
+        "detect":{
             "files":[
                 {
-                    "ext":["class, java, jar"],
-                    "name":[],
-                    "content":[],
-                    "weight": 0.5
+                    "name":["*.class", "*.java", "*.jar"],
+                    "content":"",
+                    "weight":0.5
                 },
                 {
-                    "ext":["gradle"],
-                    "name":"build",
-                    "content":[],
-                    "weight": 2
+                    "name":["build.gradle"],
+                    "content":"",
+                    "weight":4
                 }
             ],
             "folders":[
                 {
                     "name":"gradle/wrapper",
-                    "content":[],
-                    "weight": 2
+                    "files":[],
+                    "weight":4
                 }
             ]
         },
-        "exclusions": {
-            "files": [],
-            "folders": []
+        "actions":{
+            "before":[],
+            "after":[],
+            "exclude":{
+                "files":[],
+                "folders":[]
+            }
         }
     }
 ]
