@@ -15,27 +15,39 @@ import json
 
 
 def auto_detect(proj_fld):
-    with open("./rules.json", "r") as read_file:
+    with open("./rules.json", 'r') as read_file:
         rules = json.load(read_file)
+        contenders = []
         for rule in rules:
-            echo(rule['name'])
             extensions = []
             weight = 0
             for file in rule['detect']['files']:
                 names = file['name']
+                pattern = file['pattern']
                 if len(names) == 1:
-                    # If only one filename, check its content
-                    # TODO
-                    print(names[0])
+                    # If only one extension, add it to the extension array
+                    if names[0].startswith('*.'):
+                        extensions.append(names[0])
+                    else:
+                        # If only one filename check if it exists, then check its content
+                        filename = names[0]
+                        if os.path.exists(f'{proj_fld}/{filename}'):
+                            # If the pattern defined in the rule is not set to null, search it in the file
+                            if pattern:
+                                with open(f'{proj_fld}/{filename}', 'r') as file_content:
+                                    if pattern in file_content:
+                                        weight += file['weight']
+                            else:
+                                weight += file['weight']
                 if len(names) > 1:
                     for name in names:
                         if name.startswith('*.'):
                             extensions.append(name)
                         else:
-                            print('file', f'{proj_fld}/{name}', f'+{file["weight"]}')
                             # If the filename is not an extension, check for its existence right away
                             if os.path.exists(f'{proj_fld}/{name}'):
                                 weight += file['weight']
+
             for folder in rule['detect']['folders']:
                 name = folder['name']
                 # We check if each folder from the current rule exists
@@ -47,14 +59,32 @@ def auto_detect(proj_fld):
                         # Make sure that each files from the folder element exists before increasing the weight
                         match = True
                         for file in folder['files']:
-                            print(f'{proj_fld}/{folder["name"]}/{file}')
                             if not os.path.exists(f'{proj_fld}/{folder["name"]}/{file}'):
                                 match = False
-                                print(f'false: {proj_fld}/{folder["name"]}/{file}')
                         if match:
                             weight += folder['weight']
-            print('weight:', weight)
-    return ''
+            contenders.append({
+                "name": rule['name'],
+                "extensions": extensions,
+                "weight": weight
+            })
+        # TODO: Threshold is not integrated here
+        # TODO: Add more comments?
+        crawled = False
+        if utils.weight_found(contenders):
+            contenders = utils.elect(contenders)
+        else:
+            contenders = utils.crawl_for_weight(contenders)
+            crawled = True
+            if utils.weight_found(contenders):
+                contenders = utils.elect(contenders)
+
+        if not utils.weight_found(contenders) and len(contenders) > 1:
+            if not crawled:
+                contenders = utils.crawl_for_weight(contenders)
+        # TODO: Add the currently detected language into settings.json, FIFO-style.
+
+    return contenders
 
 
 def build_archive(project_fld, dst_path, uid, started):
@@ -182,6 +212,7 @@ def main(path, output, cache, autoinstall, archive):
         proj_fld = os.getcwd()
 
     lang = auto_detect(proj_fld)
+    # TODO: Apply the actions (begin with exclusions)
     print(lang)
     # Check if the current folder is a javascript project
     # if utils.exists(f'{proj_fld}/package.json'):

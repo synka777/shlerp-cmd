@@ -5,12 +5,12 @@
             "files":[
                 {
                     "name":["*.py"],
-                    "content":"",
+                    "pattern":null,
                     "weight":0.5
                 },
                 {
-                    "name":["main.py", "utils.py"],
-                    "content":"",
+                    "name":["main.py"],
+                    "pattern":null,
                     "weight":0.5
                 }
             ],
@@ -38,12 +38,12 @@
             "files":[
                 {
                     "name":["tslint.json", "eslint.json", "package.json", "tsconfig.json"],
-                    "content":"",
+                    "pattern":null,
                     "weight":4
                 },
                 {
                     "name":["*.js", "*.ts", "*.jsx"],
-                    "content":"",
+                    "pattern":null,
                     "weight":0.5
                 }
             ],
@@ -71,12 +71,12 @@
             "files":[
                 {
                     "name":["*.class", "*.java", "*.jar"],
-                    "content":"",
+                    "pattern":null,
                     "weight":0.5
                 },
                 {
                     "name":["build.gradle"],
-                    "content":"",
+                    "pattern":null,
                     "weight":4
                 }
             ],

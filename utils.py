@@ -2,6 +2,7 @@ import os
 import random
 from uuid import uuid4
 from datetime import datetime
+from click import echo
 
 
 def exists(path):
@@ -40,3 +41,36 @@ def suid():
         chunks.remove(chunk)
         count += 1
     return uid
+
+
+def weight_found(contenders):
+    """Self-explanatory
+    :param contenders: List of objects representing potential winners
+    :return: True if some patterns has a weight
+    """
+    for cont in contenders:
+        if cont['weight'] > 0:
+            return True
+    return False
+
+
+def elect(contenders):
+    """Determines which language pattern(s) has the heavier weight
+    :param contenders: List of objects representing potential winners
+    :return: The object(s) that has the heaviest weight
+    """
+    winner = []
+    contenders.sort(key=lambda x: x['weight'], reverse=True)
+    for cont in contenders:
+        if not winner:
+            winner.append(cont)
+        else:
+            if cont['weight'] == winner[0]['weight']:
+                winner.append(cont)
+    return None if len(winner) == 0 else winner
+
+
+def crawl_for_weight(contenders):
+    # TODO: If nothing matched or no clear winner, crawl the project to find files matching the ext(s)
+    echo('Crawling...')
+    return []
