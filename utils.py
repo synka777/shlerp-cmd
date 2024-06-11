@@ -3,6 +3,7 @@ import random
 from uuid import uuid4
 from datetime import datetime
 from click import echo
+import glob
 
 
 def exists(path):
@@ -70,7 +71,15 @@ def elect(contenders):
     return None if len(winner) == 0 else winner
 
 
-def crawl_for_weight(contenders):
-    # TODO: If nothing matched or no clear winner, crawl the project to find files matching the ext(s)
+def crawl_for_weight(proj_fld, contenders):
+    """Crawl the project to find files matching the extensions we provide to this function
+    :param proj_fld: text, the folder we want to process
+    :param contenders: object list containing languages names, extensions to crawl and weights
+    :return: an updated list with some more weight (hopefully)
+    """
     echo('Crawling...')
-    return []
+    for cont in contenders:
+        for ext in cont['extensions']:
+            for _ in glob.iglob(f'{proj_fld}/**/{ext["name"]}', recursive=True):
+                cont['weight'] += ext['weight']
+    return contenders

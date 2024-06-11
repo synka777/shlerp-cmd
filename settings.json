@@ -1,6 +1,5 @@
 {
-  "rules": {
-      "threshold": 4,
-      "pref_patterns": ["Python","Javascript"]
-  }
+  	"rules": {
+		"pref_patterns": ["Python","Javascript"]
+	}
 }

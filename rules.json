@@ -9,7 +9,7 @@
                     "weight":0.5
                 },
                 {
-                    "name":["main.py"],
+                    "name":[],
                     "pattern":null,
                     "weight":0.5
                 }

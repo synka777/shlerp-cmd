@@ -27,7 +27,10 @@ def auto_detect(proj_fld):
                 if len(names) == 1:
                     # If only one extension, add it to the extension array
                     if names[0].startswith('*.'):
-                        extensions.append(names[0])
+                        extensions.append({
+                            'name': names[0],
+                            'weight': file['weight']
+                        })
                     else:
                         # If only one filename check if it exists, then check its content
                         filename = names[0]
@@ -42,7 +45,10 @@ def auto_detect(proj_fld):
                 if len(names) > 1:
                     for name in names:
                         if name.startswith('*.'):
-                            extensions.append(name)
+                            extensions.append({
+                                'name': name,
+                                'weight': file['weight']
+                            })
                         else:
                             # If the filename is not an extension, check for its existence right away
                             if os.path.exists(f'{proj_fld}/{name}'):
@@ -68,22 +74,33 @@ def auto_detect(proj_fld):
                 "extensions": extensions,
                 "weight": weight
             })
-        # TODO: Threshold is not integrated here
-        # TODO: Add more comments?
+
         crawled = False
         if utils.weight_found(contenders):
             contenders = utils.elect(contenders)
         else:
-            contenders = utils.crawl_for_weight(contenders)
+            # If the main method we use to find weight (filename matching) hasn't matched anything
+            # Use iglob to match files that have a given extension and update the weights
+            contenders = utils.crawl_for_weight(proj_fld, contenders)
             crawled = True
             if utils.weight_found(contenders):
                 contenders = utils.elect(contenders)
 
-        if not utils.weight_found(contenders) and len(contenders) > 1:
+        # If weight have been found BUT we have multiple winners, search for more weight
+        if utils.weight_found(contenders) and len(contenders) > 1:
             if not crawled:
-                contenders = utils.crawl_for_weight(contenders)
-        # TODO: Add the currently detected language into settings.json, FIFO-style.
+                contenders = utils.crawl_for_weight(proj_fld, contenders)
 
+        if len(contenders) > 1:
+            echo('Unable to determine the main language for this project')
+            exit()
+        else:
+            if utils.weight_found(contenders):
+                # TODO: Add the currently detected language into settings.json, FIFO-style.
+                print('')
+            else:
+                echo('Nothing matched')
+                exit()
     return contenders
 
 
