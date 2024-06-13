@@ -15,7 +15,7 @@ import json
 
 
 def auto_detect(proj_fld):
-    with open("./rules.json", 'r') as read_file:
+    with open('./rules.json', 'r') as read_file:
         rules = json.load(read_file)
         contenders = []
         for rule in rules:
@@ -96,8 +96,9 @@ def auto_detect(proj_fld):
             exit()
         else:
             if utils.weight_found(contenders):
-                # TODO: Add the currently detected language into settings.json, FIFO-style.
-                print('')
+                if not utils.history_updated(contenders):
+                    echo('A problem occurred when trying to write in tmp.json')
+
             else:
                 echo('Nothing matched')
                 exit()

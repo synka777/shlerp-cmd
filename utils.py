@@ -4,7 +4,7 @@ from uuid import uuid4
 from datetime import datetime
 from click import echo
 import glob
-
+import json
 
 def exists(path):
     """Checks if a file or folder exists
@@ -83,3 +83,45 @@ def crawl_for_weight(proj_fld, contenders):
             for _ in glob.iglob(f'{proj_fld}/**/{ext["name"]}', recursive=True):
                 cont['weight'] += ext['weight']
     return contenders
+
+
+def history_updated(contenders):
+    with open('./settings.json', 'r') as read_settings:
+        current_lang = contenders[0]['name']
+        history_limit = json.load(read_settings)['rules']['history_limit']
+        try:
+            with open('./tmp.json', 'r') as read_tmp:
+                tmp_file = json.load(read_tmp)
+                history = tmp_file['patterns_history']
+                # Useful when the history_limit settings has been reduced
+                if len(history) > history_limit:
+                    history = history[:history_limit]
+                # If the current language is in the history
+                if current_lang in history:
+                    # But it's not the latest, get its position and remove it to add it back in first pos
+                    if history.index(current_lang) != 0:
+                        current_pos = history.index(current_lang)
+                        history.pop(current_pos)
+                        history.insert(0, current_lang)
+                        with open('tmp.json', 'w') as write_tmp:
+                            tmp_file['patterns_history'] = history
+                            write_tmp.write(json.dumps(tmp_file, indent=4))
+                            return True
+                    return True
+                else:
+                    # If the current language isn't in the list, remove the oldest one if needed and then add it
+                    if len(history) == history_limit:
+                        history.pop()
+                    history.insert(0, current_lang)
+                    tmp_file['patterns_history'] = history
+                    with open('tmp.json', 'w') as write_tmp:
+                        write_tmp.write(json.dumps(tmp_file, indent=4))
+                        return True
+        except (FileNotFoundError, ValueError):
+            with open("./tmp.json", 'a') as write_tmp:
+                write_tmp.write(json.dumps({
+                    "patterns_history": [current_lang]
+                }))
+                if exists("./tmp.json"):
+                    return True
+    return False
