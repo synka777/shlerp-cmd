@@ -14,10 +14,39 @@ from click import echo
 import json
 
 
-def auto_detect(proj_fld):
-    with open('./rules.json', 'r') as read_file:
-        rules = json.load(read_file)
-        contenders = []
+def auto_detect(proj_fld, settings):
+    contenders = []
+    tried_history = False
+    tried_all = False
+    while True:
+        if tried_history:
+            contenders = []
+        # Try...Except
+        with open('./rules.json', 'r') as read_file:
+            rules = json.load(read_file)
+
+        # If the rules history hasn't been checked yet, only keep the rules that are mentioned in the tmp file
+        if not tried_history:
+            try:
+                with open('./tmp.json', 'r') as read_tmp:
+                    tmp_file = json.load(read_tmp)
+                    rules_history = tmp_file['rules_history']
+                    for rule in rules:
+                        if rule['name'] not in rules_history:
+                            current_pos = rules.index(rule)
+                            rules.pop(current_pos)
+            except (FileNotFoundError, ValueError):
+                echo('Info: Temp file not found, will use the whole ruleset instead')
+                tried_history = True
+        else:
+            to_prune = []
+            for rule_name in rules_history:
+                for rule in rules:
+                    if rule['name'] == rule_name:
+                        to_prune.append(rule)
+            for junk in to_prune:
+                rules.remove(junk)
+
         for rule in rules:
             extensions = []
             weight = 0
@@ -91,17 +120,26 @@ def auto_detect(proj_fld):
             if not crawled:
                 contenders = utils.crawl_for_weight(proj_fld, contenders)
 
+        if not tried_history:
+            tried_history = True
+        else:
+            tried_all = True
+
         if len(contenders) > 1:
-            echo('Unable to determine the main language for this project')
-            exit()
+            if tried_history and tried_all:
+                echo('Unable to determine the main language for this project')
+                break
         else:
             if utils.weight_found(contenders):
-                if not utils.history_updated(contenders):
+                if not utils.history_updated(contenders[0], settings, tmp_file):
                     echo('A problem occurred when trying to write in tmp.json')
-
+                    break
+                else:
+                    break
             else:
-                echo('Nothing matched')
-                exit()
+                if tried_history and tried_all:
+                    echo('Nothing matched')
+                    break
     return contenders
 
 
@@ -224,14 +262,16 @@ def duplicate(path, dst, cache, uid, started):
 def main(path, output, cache, autoinstall, archive):
     """Dev projects backups made easy"""
     start_time = time.time()
+    settings = None
     if path:
         proj_fld = os.path.abspath(path)
     else:
         proj_fld = os.getcwd()
-
-    lang = auto_detect(proj_fld)
+    with open('./settings.json', 'r') as read_settings:
+        settings = json.load(read_settings)
+    lang = auto_detect(proj_fld, settings)
     # TODO: Apply the actions (begin with exclusions)
-    print(lang)
+    print('main', lang)
     # Check if the current folder is a javascript project
     # if utils.exists(f'{proj_fld}/package.json'):
     #     uid = utils.suid()

@@ -6,6 +6,7 @@ from click import echo
 import glob
 import json
 
+
 def exists(path):
     """Checks if a file or folder exists
     :param path: String referring to the path we want to check
@@ -85,43 +86,59 @@ def crawl_for_weight(proj_fld, contenders):
     return contenders
 
 
-def history_updated(contenders):
-    with open('./settings.json', 'r') as read_settings:
-        current_lang = contenders[0]['name']
-        history_limit = json.load(read_settings)['rules']['history_limit']
-        try:
-            with open('./tmp.json', 'r') as read_tmp:
-                tmp_file = json.load(read_tmp)
-                history = tmp_file['patterns_history']
-                # Useful when the history_limit settings has been reduced
-                if len(history) > history_limit:
-                    history = history[:history_limit]
-                # If the current language is in the history
-                if current_lang in history:
-                    # But it's not the latest, get its position and remove it to add it back in first pos
-                    if history.index(current_lang) != 0:
-                        current_pos = history.index(current_lang)
-                        history.pop(current_pos)
-                        history.insert(0, current_lang)
-                        with open('tmp.json', 'w') as write_tmp:
-                            tmp_file['patterns_history'] = history
-                            write_tmp.write(json.dumps(tmp_file, indent=4))
-                            return True
+def enforce_limit(tmp_file, settings):
+    """Shortens the history if it is too long compared to history_limit
+    :param tmp_file: Temporary file containing the history list
+    :param settings: Param representing
+    :return:
+    """
+    history = tmp_file['rules_history']
+    history_limit = settings['rules']['history_limit']
+    if len(history) > history_limit:
+        history = history[:history_limit]
+        with open('tmp.json', 'w') as write_tmp:
+            tmp_file['rules_history'] = history
+            write_tmp.write(json.dumps(tmp_file, indent=4))
+
+
+def history_updated(rule, settings, tmp_file):
+    """Updates the history with a new rule
+    :param rule:  List of objects representing potential winners
+    :param settings: The settings of the project
+    :param tmp_file:
+    :return: A boolean depending on the outcome of this function
+    """
+    current_lang = rule['name']
+    try:
+        enforce_limit(tmp_file, settings)
+        history = tmp_file['rules_history']
+        history_limit = settings['rules']['history_limit']
+        # If the current language is in the history
+        if current_lang in history:
+            # But it's not the latest, get its position and remove it to add it back in first pos
+            if history.index(current_lang) != 0:
+                current_pos = history.index(current_lang)
+                history.pop(current_pos)
+                history.insert(0, current_lang)
+                with open('tmp.json', 'w') as write_tmp:
+                    tmp_file['rules_history'] = history
+                    write_tmp.write(json.dumps(tmp_file, indent=4))
                     return True
-                else:
-                    # If the current language isn't in the list, remove the oldest one if needed and then add it
-                    if len(history) == history_limit:
-                        history.pop()
-                    history.insert(0, current_lang)
-                    tmp_file['patterns_history'] = history
-                    with open('tmp.json', 'w') as write_tmp:
-                        write_tmp.write(json.dumps(tmp_file, indent=4))
-                        return True
-        except (FileNotFoundError, ValueError):
-            with open("./tmp.json", 'a') as write_tmp:
-                write_tmp.write(json.dumps({
-                    "patterns_history": [current_lang]
-                }))
-                if exists("./tmp.json"):
-                    return True
+            return True
+        else:
+            # If the current language isn't in the list, remove the oldest one if needed and then add it
+            if len(history) == history_limit:
+                history.pop()
+            history.insert(0, current_lang)
+            tmp_file['rules_history'] = history
+            with open('tmp.json', 'w') as write_tmp:
+                write_tmp.write(json.dumps(tmp_file, indent=4))
+                return True
+    except (FileNotFoundError, ValueError):
+        with open("./tmp.json", 'a') as write_tmp:
+            write_tmp.write(json.dumps({
+                "rules_history": [current_lang]
+            }))
+            if exists("./tmp.json"):
+                return True
     return False
