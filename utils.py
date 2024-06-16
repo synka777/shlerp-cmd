@@ -45,45 +45,46 @@ def suid():
     return uid
 
 
-def weight_found(contenders):
+def weight_found(leads):
     """Self-explanatory
-    :param contenders: List of objects representing potential winners
+    :param leads: List of objects representing potential winners
     :return: True if some patterns has a weight
     """
-    for cont in contenders:
-        if cont['weight'] > 0:
+    for lead in leads:
+        if lead['total'] > 0:
             return True
     return False
 
 
-def elect(contenders):
+def elect(leads):
     """Determines which language pattern(s) has the heavier weight
-    :param contenders: List of objects representing potential winners
+    :param leads: List of objects representing potential winners
     :return: The object(s) that has the heaviest weight
     """
     winner = []
-    contenders.sort(key=lambda x: x['weight'], reverse=True)
-    for cont in contenders:
+    leads.sort(key=lambda x: x['total'], reverse=True)
+    for lead in leads:
         if not winner:
-            winner.append(cont)
+            winner.append(lead)
         else:
-            if cont['weight'] == winner[0]['weight']:
-                winner.append(cont)
+            if lead['total'] == winner[0]['total']:
+                winner.append(lead)
     return None if len(winner) == 0 else winner
 
 
-def crawl_for_weight(proj_fld, contenders):
+def crawl_for_weight(proj_fld, leads, uid):
     """Crawl the project to find files matching the extensions we provide to this function
+    :param uid: identifier representing the current program run
     :param proj_fld: text, the folder we want to process
-    :param contenders: object list containing languages names, extensions to crawl and weights
+    :param leads: object list containing languages names, extensions to crawl and weights
     :return: an updated list with some more weight (hopefully)
     """
-    echo('Crawling...')
-    for cont in contenders:
-        for ext in cont['extensions']:
+    echo(f'[{uid}:{get_dt()}:scan] Crawling...')
+    for lead in leads:
+        for ext in lead['extensions']:
             for _ in glob.iglob(f'{proj_fld}/**/{ext["name"]}', recursive=True):
-                cont['weight'] += ext['weight']
-    return contenders
+                lead['total'] += ext['weight']
+    return leads
 
 
 def enforce_limit(tmp_file, settings):

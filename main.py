@@ -14,17 +14,18 @@ from click import echo
 import json
 
 
-def auto_detect(proj_fld, settings):
-    contenders = []
+def auto_detect(proj_fld, settings, uid):
+    leads = []
     tried_history = False
     tried_all = False
     while True:
-        if tried_history:
-            contenders = []
         # Try...Except
-        with open('./rules.json', 'r') as read_file:
-            rules = json.load(read_file)
-
+        try:
+            with open('./rules.json', 'r') as read_file:
+                rules = json.load(read_file)
+        except FileNotFoundError:
+            echo(f'[{uid}:{utils.get_dt()}:scan] ERROR: rules.json not found')
+            exit()
         # If the rules history hasn't been checked yet, only keep the rules that are mentioned in the tmp file
         if not tried_history:
             try:
@@ -36,7 +37,7 @@ def auto_detect(proj_fld, settings):
                             current_pos = rules.index(rule)
                             rules.pop(current_pos)
             except (FileNotFoundError, ValueError):
-                echo('Info: Temp file not found, will use the whole ruleset instead')
+                echo(f'[{uid}:{utils.get_dt()}:scan] Info: Temp file not found, will use the whole ruleset instead')
                 tried_history = True
         else:
             to_prune = []
@@ -49,7 +50,7 @@ def auto_detect(proj_fld, settings):
 
         for rule in rules:
             extensions = []
-            weight = 0
+            total = 0
             for file in rule['detect']['files']:
                 names = file['name']
                 pattern = file['pattern']
@@ -68,9 +69,9 @@ def auto_detect(proj_fld, settings):
                             if pattern:
                                 with open(f'{proj_fld}/{filename}', 'r') as file_content:
                                     if pattern in file_content:
-                                        weight += file['weight']
+                                        total += file['weight']
                             else:
-                                weight += file['weight']
+                                total += file['weight']
                 if len(names) > 1:
                     for name in names:
                         if name.startswith('*.'):
@@ -81,7 +82,7 @@ def auto_detect(proj_fld, settings):
                         else:
                             # If the filename is not an extension, check for its existence right away
                             if os.path.exists(f'{proj_fld}/{name}'):
-                                weight += file['weight']
+                                total += file['weight']
 
             for folder in rule['detect']['folders']:
                 name = folder['name']
@@ -89,7 +90,7 @@ def auto_detect(proj_fld, settings):
                 if os.path.exists(f'{proj_fld}/{name}/'):
                     # If we don't have any files to check in the folder, increment the rule weight
                     if not folder['files']:
-                        weight += folder['weight']
+                        total += folder['weight']
                     else:
                         # Make sure that each files from the folder element exists before increasing the weight
                         match = True
@@ -97,50 +98,60 @@ def auto_detect(proj_fld, settings):
                             if not os.path.exists(f'{proj_fld}/{folder["name"]}/{file}'):
                                 match = False
                         if match:
-                            weight += folder['weight']
-            contenders.append({
+                            total += folder['weight']
+            leads.append({
                 "name": rule['name'],
                 "extensions": extensions,
-                "weight": weight
+                "total": total
             })
 
         crawled = False
-        if utils.weight_found(contenders):
-            contenders = utils.elect(contenders)
+        if utils.weight_found(leads):
+            leads = utils.elect(leads)
         else:
             # If the main method we use to find weight (filename matching) hasn't matched anything
             # Use iglob to match files that have a given extension and update the weights
-            contenders = utils.crawl_for_weight(proj_fld, contenders)
+            leads = utils.crawl_for_weight(proj_fld, leads, uid)
             crawled = True
-            if utils.weight_found(contenders):
-                contenders = utils.elect(contenders)
+            if utils.weight_found(leads):
+                leads = utils.elect(leads)
 
         # If weight have been found BUT we have multiple winners, search for more weight
-        if utils.weight_found(contenders) and len(contenders) > 1:
+        if utils.weight_found(leads) and len(leads) > 1:
             if not crawled:
-                contenders = utils.crawl_for_weight(proj_fld, contenders)
+                leads = utils.crawl_for_weight(proj_fld, leads, uid)
 
         if not tried_history:
             tried_history = True
         else:
             tried_all = True
 
-        if len(contenders) > 1:
-            if tried_history and tried_all:
-                echo('Unable to determine the main language for this project')
+        # Final checks before finishing the current iteration in the loop
+        if len(leads) > 1:
+            # If we have more than one language remaining it means the autodetection wasn't successful
+            leads = list([])
+            if tried_all:
+                echo(f'[{uid}:{utils.get_dt()}:scan] Warning: Unable to determine the main language for this project')
                 break
+            else:
+                echo(f'[{uid}:{utils.get_dt()}:scan] Info: Trying the whole ruleset...')
+                # Ah shit, here we go again
         else:
-            if utils.weight_found(contenders):
-                if not utils.history_updated(contenders[0], settings, tmp_file):
-                    echo('A problem occurred when trying to write in tmp.json')
+            if utils.weight_found(leads):
+                # Successful exit point
+                # Check if the history in the tmp file can be updated before breaking out of the loop
+                if not utils.history_updated(leads[0], settings, tmp_file):
+                    echo(f'[{uid}:{utils.get_dt()}:scan] Info: A problem occurred when trying to write in tmp.json')
                     break
                 else:
                     break
             else:
-                if tried_history and tried_all:
-                    echo('Nothing matched')
+                leads = list([])
+                if tried_all:
+                    echo(f'[{uid}:{utils.get_dt()}:scan] Warning: Nothing matched')
                     break
-    return contenders
+                # Ah shit, here we go again
+    return leads[0] if leads else False
 
 
 def build_archive(project_fld, dst_path, uid, started):
@@ -202,11 +213,11 @@ def build_archive(project_fld, dst_path, uid, started):
             echo(f'[{uid}:{utils.get_dt()}:arch] Warning - Corrupted archive: {dst_path}.zip')
 
 
-def duplicate(path, dst, cache, uid, started):
+# def duplicate(path, dst, cache, uid, started):
+def duplicate(path, dst, uid, started):
     """Duplicates a project folder, processes all files and folders. node_modules will be processed last if cache = True
     :param path, string that represents the project folder we want to duplicate
     :param dst, string that represents the destination folder where we will copy the project files
-    :param cache, boolean
     :param uid, text representing a short uid
     :param started: number representing the time when the script has been executed
     """
@@ -236,11 +247,11 @@ def duplicate(path, dst, cache, uid, started):
         #       f'Files: {file_count} - '
         #       f'Symbolic links: {symlink_count}')
         echo(f'[{uid}:{utils.get_dt()}:copy] ✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/')
-        if cache:
-            start_cache = time.time()
-            echo(f'[{uid}:{utils.get_dt()}:copy] Processing node_modules...')
-            shutil.copytree(f'{path}/node_modules', f'{dst}/node_modules', symlinks=True)
-            echo(f'[{uid}:{utils.get_dt()}:copy] Done ({"%.2f" % (time.time() - start_cache)}s): {dst}/node_modules/')
+        # if cache:
+        #     start_cache = time.time()
+        #     echo(f'[{uid}:{utils.get_dt()}:copy] Processing node_modules...')
+        #     shutil.copytree(f'{path}/node_modules', f'{dst}/node_modules', symlinks=True)
+        #     echo(f'[{uid}:{utils.get_dt()}:copy] Done ({"%.2f" % (time.time() - start_cache)}s): {dst}/node_modules/')
     except Exception as exc:
         echo(f'[{uid}:{utils.get_dt()}:copy] Error during the duplication', exc)
 
@@ -250,61 +261,62 @@ def duplicate(path, dst, cache, uid, started):
               help='The path of the project we want to backup. Please use absolute paths for now')
 @click.option('-o', '--output', type=click.Path(),
               help='The location where we want to store the backup')
-@click.option('-c', '--cache', default=False,
-              help='Includes node_modules in the duplication. Only works in conjunction with -a',
-              is_flag=True)
-@click.option('-ai', '--autoinstall', default=False,
-              help='Installs the node modules. Don\'t use it with -c.',
-              is_flag=True)
+@click.option('-r', '--rule', default=False,
+              help='Manually specify a rule name if you want')
+# @click.option('-c', '--cache', default=False,
+#               help='Includes node_modules in the duplication. Only works in conjunction with -a',
+#               is_flag=True)
+# @click.option('-ai', '--autoinstall', default=False,
+#               help='Installs the node modules. Don\'t use it with -c.',
+#               is_flag=True)
 @click.option('-a', '--archive', default=False,
               help='Archives the project folder instead of making a copy of it',
               is_flag=True)
-def main(path, output, cache, autoinstall, archive):
+def main(path, output, rule, archive):
     """Dev projects backups made easy"""
     start_time = time.time()
-    settings = None
     if path:
         proj_fld = os.path.abspath(path)
     else:
         proj_fld = os.getcwd()
     with open('./settings.json', 'r') as read_settings:
         settings = json.load(read_settings)
-    lang = auto_detect(proj_fld, settings)
+
+    uid = utils.suid()
+    if not rule:
+        rule_detected = auto_detect(proj_fld, settings, uid)
+        if rule_detected:
+            rule = rule_detected
+            echo(f'[{uid}:{utils.get_dt()}:scan] Info: Matching rule: {rule["name"]}')
+        else:
+            echo(f'[{uid}:{utils.get_dt()}:scan] Error: Please select a rule to apply with --rule')
+            exit()
     # TODO: Apply the actions (begin with exclusions)
-    print('main', lang)
-    # Check if the current folder is a javascript project
-    # if utils.exists(f'{proj_fld}/package.json'):
-    #     uid = utils.suid()
-    #     echo(f'[{uid}:{utils.get_dt()}] Package.json found')
-    #     node_modules = utils.exists(f'{proj_fld}/node_modules')
-    #     # If we don't have a particular output folder, use the same as the project
-    #     if output:
-    #         output = os.path.abspath(output)
-    #         project_name = proj_fld.split('/')[-1]
-    #         dst = f'{output}/{project_name}_{utils.get_dt()}'
-    #     else:
-    #         dst = f'{proj_fld}_{utils.get_dt()}'
-    #     if archive:
-    #         # If the -a switch is provided to the script, we use build_archive() and exclude the node_module folder
-    #         build_archive(proj_fld, dst, uid, start_time)
-    #     else:
-    #         # Else if we don't want an archive we will do a copy of the project instead
-    #         if not cache:
-    #             # Copy everything except the node_modules folder
-    #             duplicate(proj_fld, dst, False, uid, start_time)
-    #             if autoinstall:
-    #                 echo('Installing npm packages...')
-    #                 os.system('npm i')
-    #         else:
-    #             if autoinstall:
-    #                 echo(f'[{uid}:{utils.get_dt()}] Info: -ai/--autoinstall discarded by -c/--cache')
-    #             if node_modules:
-    #                 duplicate(proj_fld, dst, True, uid, start_time)
-    #             else:
-    #                 duplicate(proj_fld, dst, False, uid, start_time)
+
+    # # If we don't have a particular output folder, use the same as the project
+    # if output:
+    #     output = os.path.abspath(output)
+    #     project_name = proj_fld.split('/')[-1]
+    #     dst = f'{output}/{project_name}_{utils.get_dt()}'
     # else:
-    #     echo(f'{proj_fld} is not a node project')
-    #     exit()
+    #     dst = f'{proj_fld}_{utils.get_dt()}'
+    # if archive:
+    #     # If the -a switch is provided to the script, we use build_archive() and exclude the node_module folder
+    #     build_archive(proj_fld, dst, uid, start_time)
+    # else:
+    #     # Else if we don't want an archive we will do a copy of the project instead
+    #     if not cache:
+    #         # Copy everything except the node_modules folder
+    #         duplicate(proj_fld, dst, False, uid, start_time)
+    #         # if autoinstall:
+    #         #     echo('Installing npm packages...')
+    #         #     os.system('npm i')
+    #     else:
+    #         if node_modules:
+    #             duplicate(proj_fld, dst, True, uid, start_time)
+    #         else:
+    #             duplicate(proj_fld, dst, False, uid, start_time)
+
 
 
 if __name__ == '__main__':
