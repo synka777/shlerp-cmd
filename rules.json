@@ -61,8 +61,8 @@
             "before":[],
             "after":[],
             "exclude":{
-                "files":[],
-                "folders":[],
+                "files":["out.log"],
+                "folders":["buildprep", "HEMPTYDIR"],
                 "dep_folder": "node_modules"
             }
         }

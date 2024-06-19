@@ -152,52 +152,77 @@ def auto_detect(proj_fld, settings, uid):
     return leads[0] if leads else False
 
 
-def make_archive(project_fld, dst_path, uid, started):
+def make_archive(project_fld, dst_path, rule, uid, started):
     """Makes an archive of a given folder, without node_modules
     :param project_fld: text, the folder we want to archive
     :param dst_path: text, the location where we want to store the archive
+    :param rule: dictionary/object representing the rule/language corresponding to the project
     :param uid: text representing a short uid
     :param started: number representing the time when the script has been executed
     """
     with ZipFile(f'{dst_path}.zip', 'w', ZIP_DEFLATED, compresslevel=9) as zip_archive:
         fld_count = file_count = symlink_count = 0
         success = False
-        for filename in glob.iglob(project_fld + '/**', recursive=True):
-            if 'node_modules' not in filename:
-                rel_filename = filename.split(f'{project_fld}/')[1]
-                # Exclude '' (listed by iglob when the script is executed from another path in a terminal)
-                if rel_filename != '':
-                    # If the filename is actually a symbolic link, use zip_info and zipfile.writestr()
-                    # Source: https://gist.github.com/kgn/610907
-                    if os.path.islink(filename):
-                        symlink_count += 1
-                        # http://www.mail-archive.com/python-list@python.org/msg34223.html
-                        zip_info = ZipInfo(filename)
-                        zip_info.create_system = 3
-                        # long type of hex val of '0xA1ED0000L',
-                        # say, symlink attr magic...
-                        zip_info.external_attr = 2716663808
-                        try:
-                            zip_archive.writestr(zip_info, os.readlink(f'{filename}'))
-                            echo(f'[{uid}:{utils.get_dt()}:arch] Done: {rel_filename}')
-                            success = True
-                        except Exception as exc:
-                            echo(f'[{uid}:{utils.get_dt()}:arch]'
-                                 f'A problem happened while handling {rel_filename}: {exc}')
+        for elem_name in glob.iglob(project_fld + '/**', recursive=True):
+            rel_name = elem_name.split(f'{project_fld}/')[1]
+            exclusions = rule['actions']['exclude']
+            proceed = True
+            dep_folder = exclusions['dep_folder']
 
-                    else:
-                        try:
-                            zip_archive.write(f'{filename}', arcname=f'{rel_filename}')
-                            if os.path.isdir(filename):
-                                fld_count += 1
-                            else:
-                                file_count += 1
-                            echo(f'[{uid}:{utils.get_dt()}:arch] Done: {rel_filename}')
-                            success = True
-                        except Exception as exc:
-                            echo(
-                                f'[{uid}:{utils.get_dt()}:arch] '
-                                f'A problem happened while handling {rel_filename}: {exc}')
+            # Exclusion zone
+            # Reject the current relative path if one of these conditions are matched
+            if os.path.isdir(elem_name):
+                if (dep_folder and dep_folder in rel_name) or rel_name == '':
+                    proceed = False
+                if exclusions['folders']:
+                    for fld_excl in exclusions['folders']:
+                        if fld_excl in rel_name:
+                            proceed = False
+            else:
+                if exclusions['files']:
+                    for file_excl in exclusions['files']:
+                        if (
+                            file_excl == rel_name.split('/')[-1] or
+                            (dep_folder and dep_folder in rel_name)
+                        ):
+                            proceed = False
+                if exclusions['folders']:
+                    for fld_excl in exclusions['folders']:
+                        if fld_excl in rel_name:
+                            proceed = False
+
+            if proceed:
+                # If the elem_name is actually a symbolic link, use zip_info and zipfile.writestr()
+                # Source: https://gist.github.com/kgn/610907
+                if os.path.islink(elem_name):
+                    symlink_count += 1
+                    # http://www.mail-archive.com/python-list@python.org/msg34223.html
+                    zip_info = ZipInfo(elem_name)
+                    zip_info.create_system = 3
+                    # long type of hex val of '0xA1ED0000L',
+                    # say, symlink attr magic...
+                    zip_info.external_attr = 2716663808
+                    try:
+                        zip_archive.writestr(zip_info, os.readlink(f'{elem_name}'))
+                        echo(f'[{uid}:{utils.get_dt()}:arch] Done: {rel_name}')
+                        success = True
+                    except Exception as exc:
+                        echo(f'[{uid}:{utils.get_dt()}:arch]'
+                             f'A problem happened while handling {rel_name}: {exc}')
+                else:
+                    try:
+                        zip_archive.write(f'{elem_name}', arcname=f'{rel_name}')
+                        if os.path.isdir(elem_name):
+                            fld_count += 1
+                        else:
+                            file_count += 1
+                        echo(f'[{uid}:{utils.get_dt()}:arch] Done: {rel_name}')
+                        success = True
+                    except Exception as exc:
+                        echo(
+                            f'[{uid}:{utils.get_dt()}:arch] '
+                            f'A problem happened while handling {rel_name}: {exc}')
+
         if success:
             echo('------------')
             echo(f'[{uid}:{utils.get_dt()}:arch] '
@@ -208,7 +233,7 @@ def make_archive(project_fld, dst_path, uid, started):
                 f'[{uid}:{utils.get_dt()}:arch] '
                 f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip')
         else:
-            echo(f'[{uid}:{utils.get_dt()}:arch] Warning - Corrupted archive: {dst_path}.zip')
+            echo(f'[{uid}:{utils.get_dt()}:arch] Warning - Incomplete archive: {dst_path}.zip')
 
 
 def duplicate(path, dst, rule, keep_dependencies, uid, started):
@@ -252,7 +277,8 @@ def duplicate(path, dst, rule, keep_dependencies, uid, started):
             start_dep_folder = time.time()
             echo(f'[{uid}:{utils.get_dt()}:copy] Processing {dep_folder}...')
             shutil.copytree(f'{path}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
-            echo(f'[{uid}:{utils.get_dt()}:copy] Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/node_modules/')
+            echo(
+                f'[{uid}:{utils.get_dt()}:copy] Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/node_modules/')
     except Exception as exc:
         echo(f'[{uid}:{utils.get_dt()}:copy] Error during the duplication', exc)
 
@@ -314,7 +340,7 @@ def main(path, output, rule, dependencies, archive):
     if archive:
         # If the -a switch is provided to the script, we use make_archive() and exclude the node_module folder
         # TODO1: Edit make_archive to use folder exclusion
-        make_archive(proj_fld, dst, uid, start_time, rule)
+        make_archive(proj_fld, dst, rule, uid, start_time)
     else:
         # Else if we don't want an archive we will do a copy of the project instead
         duplicate(proj_fld, dst, rule, dependencies, uid, start_time)
