@@ -28,7 +28,8 @@
             "after":[],
             "exclude":{
                 "files":[],
-                "folders":["venv"]
+                "folders":["venv"],
+                "dep_folder": null
             }
         }
     },
@@ -61,7 +62,8 @@
             "after":[],
             "exclude":{
                 "files":[],
-                "folders":["node_modules"]
+                "folders":[],
+                "dep_folder": "node_modules"
             }
         }
     },
@@ -93,7 +95,8 @@
             "after":[],
             "exclude":{
                 "files":[],
-                "folders":[]
+                "folders":[],
+                "dep_folder": null
             }
         }
     }

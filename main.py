@@ -99,11 +99,9 @@ def auto_detect(proj_fld, settings, uid):
                                 match = False
                         if match:
                             total += folder['weight']
-            leads.append({
-                "name": rule['name'],
-                "extensions": extensions,
-                "total": total
-            })
+            rule["total"] = total
+            rule["extensions"] = extensions
+            leads.append(rule)
 
         crawled = False
         if utils.weight_found(leads):
@@ -154,7 +152,7 @@ def auto_detect(proj_fld, settings, uid):
     return leads[0] if leads else False
 
 
-def build_archive(project_fld, dst_path, uid, started):
+def make_archive(project_fld, dst_path, uid, started):
     """Makes an archive of a given folder, without node_modules
     :param project_fld: text, the folder we want to archive
     :param dst_path: text, the location where we want to store the archive
@@ -213,17 +211,19 @@ def build_archive(project_fld, dst_path, uid, started):
             echo(f'[{uid}:{utils.get_dt()}:arch] Warning - Corrupted archive: {dst_path}.zip')
 
 
-# def duplicate(path, dst, cache, uid, started):
-def duplicate(path, dst, uid, started):
+def duplicate(path, dst, rule, keep_dependencies, uid, started):
     """Duplicates a project folder, processes all files and folders. node_modules will be processed last if cache = True
-    :param path, string that represents the project folder we want to duplicate
-    :param dst, string that represents the destination folder where we will copy the project files
-    :param uid, text representing a short uid
+    :param path: string that represents the project folder we want to duplicate
+    :param dst: string that represents the destination folder where we will copy the project files
+    :param rule: dictionary/object representing the rule/language corresponding to the project
+    :param keep_dependencies: boolean, says if we want to copy the dependencies folder or not if any
+    :param uid: text representing a short uid,
     :param started: number representing the time when the script has been executed
     """
     try:
         fld_count = file_count = symlink_count = 0
-        elem_list = utils.get_files(path)
+        exclusions = rule['actions']['exclude']
+        elem_list = utils.get_files(path, exclusions)
         os.mkdir(dst)
         for elem in elem_list:
             orig = f'{path}/{elem}'
@@ -247,11 +247,12 @@ def duplicate(path, dst, uid, started):
         #       f'Files: {file_count} - '
         #       f'Symbolic links: {symlink_count}')
         echo(f'[{uid}:{utils.get_dt()}:copy] ✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/')
-        # if cache:
-        #     start_cache = time.time()
-        #     echo(f'[{uid}:{utils.get_dt()}:copy] Processing node_modules...')
-        #     shutil.copytree(f'{path}/node_modules', f'{dst}/node_modules', symlinks=True)
-        #     echo(f'[{uid}:{utils.get_dt()}:copy] Done ({"%.2f" % (time.time() - start_cache)}s): {dst}/node_modules/')
+        dep_folder = exclusions["dep_folder"]
+        if keep_dependencies and utils.exists(f'{path}/{dep_folder}'):
+            start_dep_folder = time.time()
+            echo(f'[{uid}:{utils.get_dt()}:copy] Processing {dep_folder}...')
+            shutil.copytree(f'{path}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
+            echo(f'[{uid}:{utils.get_dt()}:copy] Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/node_modules/')
     except Exception as exc:
         echo(f'[{uid}:{utils.get_dt()}:copy] Error during the duplication', exc)
 
@@ -261,18 +262,18 @@ def duplicate(path, dst, uid, started):
               help='The path of the project we want to backup. Please use absolute paths for now')
 @click.option('-o', '--output', type=click.Path(),
               help='The location where we want to store the backup')
-@click.option('-r', '--rule', default=False,
+@click.option('-r', '--rule',
               help='Manually specify a rule name if you want')
-# @click.option('-c', '--cache', default=False,
-#               help='Includes node_modules in the duplication. Only works in conjunction with -a',
-#               is_flag=True)
+@click.option('-d', '--dependencies', default=False,
+              help='Includes the folders marked as dependency folders in the duplication. Only works when using -a',
+              is_flag=True)
 # @click.option('-ai', '--autoinstall', default=False,
 #               help='Installs the node modules. Don\'t use it with -c.',
 #               is_flag=True)
 @click.option('-a', '--archive', default=False,
               help='Archives the project folder instead of making a copy of it',
               is_flag=True)
-def main(path, output, rule, archive):
+def main(path, output, rule, dependencies, archive):
     """Dev projects backups made easy"""
     start_time = time.time()
     if path:
@@ -289,34 +290,39 @@ def main(path, output, rule, archive):
             rule = rule_detected
             echo(f'[{uid}:{utils.get_dt()}:scan] Info: Matching rule: {rule["name"]}')
         else:
-            echo(f'[{uid}:{utils.get_dt()}:scan] Error: Please select a rule to apply with --rule')
+            echo(f'[{uid}:{utils.get_dt()}:prep] Error: Please select a rule to apply with --rule')
             exit()
-    # TODO: Apply the actions (begin with exclusions)
+    else:
+        with open('./rules.json', 'r') as read_file:
+            rules = json.load(read_file)
+            match = False
+            for stored_rule in rules:
+                if stored_rule['name'].lower() == str(rule).lower():
+                    rule = stored_rule
+                    match = True
+            if not match:
+                echo(f'[{uid}:{utils.get_dt()}:scan] Error: Rule name not found')
+                exit()
 
-    # # If we don't have a particular output folder, use the same as the project
-    # if output:
-    #     output = os.path.abspath(output)
-    #     project_name = proj_fld.split('/')[-1]
-    #     dst = f'{output}/{project_name}_{utils.get_dt()}'
-    # else:
-    #     dst = f'{proj_fld}_{utils.get_dt()}'
-    # if archive:
-    #     # If the -a switch is provided to the script, we use build_archive() and exclude the node_module folder
-    #     build_archive(proj_fld, dst, uid, start_time)
-    # else:
-    #     # Else if we don't want an archive we will do a copy of the project instead
-    #     if not cache:
-    #         # Copy everything except the node_modules folder
-    #         duplicate(proj_fld, dst, False, uid, start_time)
-    #         # if autoinstall:
-    #         #     echo('Installing npm packages...')
-    #         #     os.system('npm i')
-    #     else:
-    #         if node_modules:
-    #             duplicate(proj_fld, dst, True, uid, start_time)
-    #         else:
-    #             duplicate(proj_fld, dst, False, uid, start_time)
+    # If we don't have a particular output folder, use the same as the project
+    if output:
+        output = os.path.abspath(output)
+        project_name = proj_fld.split('/')[-1]
+        dst = f'{output}/{project_name}_{utils.get_dt()}'
+    else:
+        dst = f'{proj_fld}_{utils.get_dt()}'
+    if archive:
+        # If the -a switch is provided to the script, we use make_archive() and exclude the node_module folder
+        # TODO1: Edit make_archive to use folder exclusion
+        make_archive(proj_fld, dst, uid, start_time, rule)
+    else:
+        # Else if we don't want an archive we will do a copy of the project instead
+        duplicate(proj_fld, dst, rule, dependencies, uid, start_time)
 
+        # TODO2: Replace this with before and after commands
+        # if autoinstall:
+        #     echo('Installing npm packages...')
+        #     os.system('npm i')
 
 
 if __name__ == '__main__':

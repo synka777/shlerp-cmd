@@ -15,12 +15,35 @@ def exists(path):
     return True if os.path.exists(path) else False
 
 
-def get_files(path):
+def get_files(path, exclusions):
     """Lists the files contained in a given folder, without symlinks
     :param path: String referring to the path that needs it's content to be listed
+    :param exclusions: Dictionary containing the files and folders we want to exclude
     :return: A list of files, without any possible node_modules folder
     """
-    return [file for file in os.listdir(path) if file != 'node_modules']
+    elem_list = []
+    dep_fld = exclusions['dep_folder']
+    for elem in os.listdir(path):
+        if os.path.isdir(f'{path}/{elem}'):
+            if exclusions['folders']:
+                for fld_excl in exclusions['folders']:
+                    if fld_excl not in elem:
+                        if not dep_fld:
+                            elem_list.append(elem)
+                        else:
+                            if dep_fld not in elem:
+                                elem_list.append(elem)
+            else:
+                if not dep_fld:
+                    elem_list.append(elem)
+        else:
+            if exclusions['files']:
+                for file_excl in exclusions['files']:
+                    if file_excl not in elem:
+                        elem_list.append(elem)
+            else:
+                elem_list.append(elem)
+    return elem_list
 
 
 def get_dt():
