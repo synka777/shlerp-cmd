@@ -11,6 +11,7 @@ from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
 import time
 import click
 from click import echo
+from utils import out
 import json
 
 
@@ -24,7 +25,7 @@ def auto_detect(proj_fld, settings, uid):
             with open('./rules.json', 'r') as read_file:
                 rules = json.load(read_file)
         except FileNotFoundError:
-            echo(f'[{uid}:{utils.get_dt()}:scan] ERROR: rules.json not found')
+            out(uid, 'scan', 'E', 'rules.json not found')
             exit()
         # If the rules history hasn't been checked yet, only keep the rules that are mentioned in the tmp file
         if not tried_history:
@@ -37,7 +38,7 @@ def auto_detect(proj_fld, settings, uid):
                             current_pos = rules.index(rule)
                             rules.pop(current_pos)
             except (FileNotFoundError, ValueError):
-                echo(f'[{uid}:{utils.get_dt()}:scan] Info: Temp file not found, will use the whole ruleset instead')
+                out(uid, 'scan', 'I', 'Temp file not found, will use the whole ruleset instead')
                 tried_history = True
         else:
             to_prune = []
@@ -129,24 +130,24 @@ def auto_detect(proj_fld, settings, uid):
             # If we have more than one language remaining it means the autodetection wasn't successful
             leads = list([])
             if tried_all:
-                echo(f'[{uid}:{utils.get_dt()}:scan] Warning: Unable to determine the main language for this project')
+                out(uid, 'scan', 'W', 'Unable to determine the main language for this project')
                 break
             else:
-                echo(f'[{uid}:{utils.get_dt()}:scan] Info: Trying the whole ruleset...')
+                out(uid, 'scan', 'I', 'Trying the whole ruleset...')
                 # Ah shit, here we go again
         else:
             if utils.weight_found(leads):
                 # Successful exit point
                 # Check if the history in the tmp file can be updated before breaking out of the loop
                 if not utils.history_updated(leads[0], settings, tmp_file):
-                    echo(f'[{uid}:{utils.get_dt()}:scan] Info: A problem occurred when trying to write in tmp.json')
+                    out(uid, 'scan', 'I', 'A problem occurred when trying to write in tmp.json')
                     break
                 else:
                     break
             else:
                 leads = list([])
                 if tried_all:
-                    echo(f'[{uid}:{utils.get_dt()}:scan] Warning: Nothing matched')
+                    out(uid, 'scan', 'W', 'Nothing matched')
                     break
                 # Ah shit, here we go again
     return leads[0] if leads else False
@@ -204,11 +205,10 @@ def make_archive(project_fld, dst_path, rule, uid, started):
                     zip_info.external_attr = 2716663808
                     try:
                         zip_archive.writestr(zip_info, os.readlink(f'{elem_name}'))
-                        echo(f'[{uid}:{utils.get_dt()}:arch] Done: {rel_name}')
+                        out(uid, 'arch', 'I',  f'Done: {rel_name}')
                         success = True
                     except Exception as exc:
-                        echo(f'[{uid}:{utils.get_dt()}:arch]'
-                             f'A problem happened while handling {rel_name}: {exc}')
+                        out(uid, 'arch', 'E', f'A problem happened while handling {rel_name}: {exc}')
                 else:
                     try:
                         zip_archive.write(f'{elem_name}', arcname=f'{rel_name}')
@@ -216,24 +216,16 @@ def make_archive(project_fld, dst_path, rule, uid, started):
                             fld_count += 1
                         else:
                             file_count += 1
-                        echo(f'[{uid}:{utils.get_dt()}:arch] Done: {rel_name}')
+                        out(uid, 'arch', 'I', f'Done: {rel_name}')
                         success = True
                     except Exception as exc:
-                        echo(
-                            f'[{uid}:{utils.get_dt()}:arch] '
-                            f'A problem happened while handling {rel_name}: {exc}')
-
+                        out(uid, 'arch', 'E', f'A problem happened while handling {rel_name}: {exc}')
         if success:
             echo('------------')
-            echo(f'[{uid}:{utils.get_dt()}:arch] '
-                 f'Folders: {fld_count} - '
-                 f'Files: {file_count} - '
-                 f'Symbolic links: {symlink_count}')
-            echo(
-                f'[{uid}:{utils.get_dt()}:arch] '
-                f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip')
+            out(uid, 'arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}')
+            out(uid, 'arch', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip')
         else:
-            echo(f'[{uid}:{utils.get_dt()}:arch] Warning - Incomplete archive: {dst_path}.zip')
+            out(uid, 'arch', 'W', 'Incomplete archive: {dst_path}.zip')
 
 
 def duplicate(path, dst, rule, keep_dependencies, uid, started):
@@ -256,7 +248,7 @@ def duplicate(path, dst, rule, keep_dependencies, uid, started):
             if os.path.isdir(orig):
                 shutil.copytree(orig, full_dst, symlinks=True)
                 if utils.exists(full_dst):
-                    echo(f'[{uid}:{utils.get_dt()}:copy] Done: {path}/{elem}')
+                    out(uid, 'copy', 'I', f'Done: {path}/{elem}')
                     fld_count += 1
             else:
                 shutil.copy(orig, full_dst)
@@ -265,22 +257,18 @@ def duplicate(path, dst, rule, keep_dependencies, uid, started):
                 else:
                     file_count += 1
                 if utils.exists(full_dst):
-                    echo(f'[{uid}:{utils.get_dt()}:copy] Done: {path}/{elem}')
+                    out(uid, 'copy', 'I', f'Done: {path}/{elem}')
         echo('------------')
-        # echo(f'[{uid}:{utils.get_dt()}:arch] '
-        #       f'Folders: {fld_count} - '
-        #       f'Files: {file_count} - '
-        #       f'Symbolic links: {symlink_count}')
-        echo(f'[{uid}:{utils.get_dt()}:copy] ✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/')
+        # out(uid, 'arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}')
+        out(uid, 'copy', 'I', f'✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/')
         dep_folder = exclusions["dep_folder"]
         if keep_dependencies and utils.exists(f'{path}/{dep_folder}'):
             start_dep_folder = time.time()
-            echo(f'[{uid}:{utils.get_dt()}:copy] Processing {dep_folder}...')
+            out(uid, 'copy', 'I', f'Processing {dep_folder}...')
             shutil.copytree(f'{path}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
-            echo(
-                f'[{uid}:{utils.get_dt()}:copy] Done ({"%.2f" % (time.time()-start_dep_folder)}s): {dst}/{dep_folder}/')
+            out(uid, 'copy', 'I', f'Done ({"%.2f" % (time.time()-start_dep_folder)}s): {dst}/{dep_folder}/')
     except Exception as exc:
-        echo(f'[{uid}:{utils.get_dt()}:copy] Error during the duplication', exc)
+        out(uid, 'copy', 'E', f'during the duplication {exc}')
 
 
 @click.command()
@@ -319,9 +307,9 @@ def main(path, output, rule, dependencies, archive):
         rule_detected = auto_detect(proj_fld, settings, uid)
         if rule_detected:
             rule = rule_detected
-            echo(f'[{uid}:{utils.get_dt()}:scan] Info: Matching rule: {rule["name"]}')
+            out(uid, 'scan', 'I', f'Matching rule: {rule["name"]}')
         else:
-            echo(f'[{uid}:{utils.get_dt()}:prep] Error: Please select a rule to apply with --rule')
+            out(uid, 'prep', 'E', 'Please select a rule to apply with --rule')
             exit()
     else:
         with open('./rules.json', 'r') as read_file:
@@ -332,7 +320,7 @@ def main(path, output, rule, dependencies, archive):
                     rule = stored_rule
                     match = True
             if not match:
-                echo(f'[{uid}:{utils.get_dt()}:scan] Error: Rule name not found')
+                out(uid, 'scan', 'E', 'Rule name not found')
                 exit()
 
     # If we don't have a particular output folder, use the same as the project
@@ -353,6 +341,7 @@ def main(path, output, rule, dependencies, archive):
         # TODO2: Replace this with before and after commands
         # if autoinstall:
         #     echo('Installing npm packages...')
+        #             out()
         #     os.system('npm i')
 
 

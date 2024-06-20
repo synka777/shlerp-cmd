@@ -15,6 +15,10 @@ def exists(path):
     return True if os.path.exists(path) else False
 
 
+def out(uid, operation, lvl, message):
+    echo(f'[{uid}:{get_dt()}:{operation}][{lvl}] {message}')
+
+
 def get_files(path, exclusions):
     """Lists the files contained in a given folder, without symlinks
     :param path: String referring to the path that needs it's content to be listed
@@ -104,7 +108,7 @@ def crawl_for_weight(proj_fld, leads, uid):
     :param leads: object list containing languages names, extensions to crawl and weights
     :return: an updated list with some more weight (hopefully)
     """
-    echo(f'[{uid}:{get_dt()}:scan] Crawling...')
+    out(uid, 'scan', 'I', 'Crawling...')
     for lead in leads:
         for ext in lead['extensions']:
             for _ in glob.iglob(f'{proj_fld}/**/{ext["name"]}', recursive=True):
