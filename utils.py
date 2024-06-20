@@ -24,24 +24,26 @@ def get_files(path, exclusions):
     elem_list = []
     dep_fld = exclusions['dep_folder']
     for elem in os.listdir(path):
+        excl_matched = False
         if os.path.isdir(f'{path}/{elem}'):
             if exclusions['folders']:
                 for fld_excl in exclusions['folders']:
-                    if fld_excl not in elem:
-                        if not dep_fld:
-                            elem_list.append(elem)
-                        else:
-                            if dep_fld not in elem:
-                                elem_list.append(elem)
-            else:
-                if not dep_fld:
-                    elem_list.append(elem)
+                    if fld_excl in elem:
+                        excl_matched = True
+                        break
+            if dep_fld and dep_fld in elem:
+                excl_matched = True
+            if not excl_matched:
+                elem_list.append(elem)
         else:
             if exclusions['files']:
                 for file_excl in exclusions['files']:
-                    if file_excl not in elem:
-                        elem_list.append(elem)
-            else:
+                    if file_excl in elem:
+                        excl_matched = True
+                        break
+            if dep_fld and dep_fld in elem:
+                excl_matched = True
+            if not excl_matched:
                 elem_list.append(elem)
     return elem_list
 

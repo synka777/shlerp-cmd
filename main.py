@@ -278,7 +278,7 @@ def duplicate(path, dst, rule, keep_dependencies, uid, started):
             echo(f'[{uid}:{utils.get_dt()}:copy] Processing {dep_folder}...')
             shutil.copytree(f'{path}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
             echo(
-                f'[{uid}:{utils.get_dt()}:copy] Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/node_modules/')
+                f'[{uid}:{utils.get_dt()}:copy] Done ({"%.2f" % (time.time()-start_dep_folder)}s): {dst}/{dep_folder}/')
     except Exception as exc:
         echo(f'[{uid}:{utils.get_dt()}:copy] Error during the duplication', exc)
 
@@ -302,8 +302,13 @@ def duplicate(path, dst, rule, keep_dependencies, uid, started):
 def main(path, output, rule, dependencies, archive):
     """Dev projects backups made easy"""
     start_time = time.time()
+    proj_fld = None
     if path:
-        proj_fld = os.path.abspath(path)
+        if not path.startswith('-'):
+            proj_fld = os.path.abspath(path)
+        else:
+            echo('Error: Option \'-p\' requires an argument.')
+            exit()
     else:
         proj_fld = os.getcwd()
     with open('./settings.json', 'r') as read_settings:

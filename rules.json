@@ -61,7 +61,7 @@
             "before":[],
             "after":[],
             "exclude":{
-                "files":["out.log"],
+                "files":["out.log", "karma.conf.js"],
                 "folders":["buildprep", "HEMPTYDIR"],
                 "dep_folder": "node_modules"
             }
