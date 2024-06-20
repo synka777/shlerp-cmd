@@ -183,8 +183,8 @@ def make_archive(project_fld, dst_path, rule, uid, started):
                 if exclusions['files']:
                     for file_excl in exclusions['files']:
                         if (
-                            file_excl == rel_name.split('/')[-1] or
-                            (dep_folder and dep_folder in rel_name)
+                                file_excl == rel_name.split('/')[-1] or
+                                (dep_folder and dep_folder in rel_name)
                         ):
                             proceed = False
                 if exclusions['folders']:
@@ -205,7 +205,7 @@ def make_archive(project_fld, dst_path, rule, uid, started):
                     zip_info.external_attr = 2716663808
                     try:
                         zip_archive.writestr(zip_info, os.readlink(f'{elem_name}'))
-                        out(uid, 'arch', 'I',  f'Done: {rel_name}')
+                        out(uid, 'arch', 'I', f'Done: {rel_name}')
                         success = True
                     except Exception as exc:
                         out(uid, 'arch', 'E', f'A problem happened while handling {rel_name}: {exc}')
@@ -266,7 +266,7 @@ def duplicate(path, dst, rule, keep_dependencies, uid, started):
             start_dep_folder = time.time()
             out(uid, 'copy', 'I', f'Processing {dep_folder}...')
             shutil.copytree(f'{path}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
-            out(uid, 'copy', 'I', f'Done ({"%.2f" % (time.time()-start_dep_folder)}s): {dst}/{dep_folder}/')
+            out(uid, 'copy', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/')
     except Exception as exc:
         out(uid, 'copy', 'E', f'during the duplication {exc}')
 
@@ -291,14 +291,22 @@ def main(path, output, rule, dependencies, archive):
     """Dev projects backups made easy"""
     start_time = time.time()
     proj_fld = None
-    if path:
-        if not path.startswith('-'):
-            proj_fld = os.path.abspath(path)
-        else:
-            echo('Error: Option \'-p\' requires an argument.')
-            exit()
-    else:
+    missing_value = False
+
+    # Extended validation for the options that have a Click.path() type
+    for opt in (('path', path), ('output', output)):
+        if opt[1]:
+            if not opt[1].startswith('-'):
+                if opt[0] == 'path':
+                    proj_fld = os.path.abspath(opt[1])
+            else:
+                echo(f'Error: Option \'--{opt[0]}\' requires an argument.')
+                missing_value = True
+    if missing_value:
+        exit()
+    if not path:
         proj_fld = os.getcwd()
+
     with open('./settings.json', 'r') as read_settings:
         settings = json.load(read_settings)
 
@@ -332,7 +340,6 @@ def main(path, output, rule, dependencies, archive):
         dst = f'{proj_fld}_{utils.get_dt()}'
     if archive:
         # If the -a switch is provided to the script, we use make_archive() and exclude the node_module folder
-        # TODO1: Edit make_archive to use folder exclusion
         make_archive(proj_fld, dst, rule, uid, start_time)
     else:
         # Else if we don't want an archive we will do a copy of the project instead
