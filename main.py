@@ -127,7 +127,7 @@ def auto_detect(proj_fld, settings, uid):
 
         # Final checks before finishing the current iteration in the loop
         if len(leads) > 1:
-            # If we have more than one language remaining it means the autodetection wasn't successful
+            # If we have more than one language remaining it means the auto-detection wasn't successful
             leads = list([])
             if tried_all:
                 out(uid, 'scan', 'W', 'Unable to determine the main language for this project')
@@ -153,11 +153,12 @@ def auto_detect(proj_fld, settings, uid):
     return leads[0] if leads else False
 
 
-def make_archive(project_fld, dst_path, rule, uid, started):
+def make_archive(project_fld, dst_path, rule, options, uid, started):
     """Makes an archive of a given folder, without node_modules
     :param project_fld: text, the folder we want to archive
     :param dst_path: text, the location where we want to store the archive
     :param rule: dictionary/object representing the rule/language corresponding to the project
+    :param options: dictionary/object containing exclusion options
     :param uid: text representing a short uid
     :param started: number representing the time when the script has been executed
     """
@@ -166,31 +167,37 @@ def make_archive(project_fld, dst_path, rule, uid, started):
         success = False
         for elem_name in glob.iglob(project_fld + '/**', recursive=True):
             rel_name = elem_name.split(f'{project_fld}/')[1]
-            exclusions = rule['actions']['exclude']
             proceed = True
+            exclusions = rule['actions']['exclude']
             dep_folder = exclusions['dep_folder']
+            if options['nogit']:
+                exclusions['folders'].append('.git')
+                exclusions['files'].append('.gitignore')
 
             # Exclusion zone
             # Reject the current relative path if one of these conditions are matched
-            if os.path.isdir(elem_name):
-                if (dep_folder and dep_folder in rel_name) or rel_name == '':
-                    proceed = False
-                if exclusions['folders']:
-                    for fld_excl in exclusions['folders']:
-                        if fld_excl in rel_name:
-                            proceed = False
+            if options['noexcl']:
+                proceed = True
             else:
-                if exclusions['files']:
-                    for file_excl in exclusions['files']:
-                        if (
+                if os.path.isdir(elem_name):
+                    if (dep_folder and dep_folder in rel_name) or rel_name == '':
+                        proceed = False
+                    if exclusions['folders']:
+                        for fld_excl in exclusions['folders']:
+                            if fld_excl in rel_name:
+                                proceed = False
+                else:
+                    if exclusions['files']:
+                        for file_excl in exclusions['files']:
+                            if (
                                 file_excl == rel_name.split('/')[-1] or
                                 (dep_folder and dep_folder in rel_name)
-                        ):
-                            proceed = False
-                if exclusions['folders']:
-                    for fld_excl in exclusions['folders']:
-                        if fld_excl in rel_name:
-                            proceed = False
+                            ):
+                                proceed = False
+                    if exclusions['folders']:
+                        for fld_excl in exclusions['folders']:
+                            if fld_excl in rel_name:
+                                proceed = False
 
             if proceed:
                 # If the elem_name is actually a symbolic link, use zip_info and zipfile.writestr()
@@ -228,19 +235,19 @@ def make_archive(project_fld, dst_path, rule, uid, started):
             out(uid, 'arch', 'W', 'Incomplete archive: {dst_path}.zip')
 
 
-def duplicate(path, dst, rule, keep_dependencies, uid, started):
+def duplicate(path, dst, rule, options, uid, started):
     """Duplicates a project folder, processes all files and folders. node_modules will be processed last if cache = True
     :param path: string that represents the project folder we want to duplicate
     :param dst: string that represents the destination folder where we will copy the project files
     :param rule: dictionary/object representing the rule/language corresponding to the project
-    :param keep_dependencies: boolean, says if we want to copy the dependencies folder or not if any
+    :param options: dictionary/object containing exclusion options
     :param uid: text representing a short uid,
     :param started: number representing the time when the script has been executed
     """
     try:
         fld_count = file_count = symlink_count = 0
         exclusions = rule['actions']['exclude']
-        elem_list = utils.get_files(path, exclusions)
+        elem_list = utils.get_files(path, exclusions, options['noexcl'], options['nogit'])
         os.mkdir(dst)
         for elem in elem_list:
             orig = f'{path}/{elem}'
@@ -262,7 +269,7 @@ def duplicate(path, dst, rule, keep_dependencies, uid, started):
         # out(uid, 'arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}')
         out(uid, 'copy', 'I', f'✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/')
         dep_folder = exclusions["dep_folder"]
-        if keep_dependencies and utils.exists(f'{path}/{dep_folder}'):
+        if options['dependencies'] and utils.exists(f'{path}/{dep_folder}'):
             start_dep_folder = time.time()
             out(uid, 'copy', 'I', f'Processing {dep_folder}...')
             shutil.copytree(f'{path}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
@@ -281,17 +288,32 @@ def duplicate(path, dst, rule, keep_dependencies, uid, started):
 @click.option('-d', '--dependencies', default=False,
               help='Includes the folders marked as dependency folders in the duplication. Only works when using -a',
               is_flag=True)
+@click.option('-ne', '--noexcl', default=False,
+              help='Disables the exclusion system inherent to each rule',
+              is_flag=True)
+@click.option('-ng', '--nogit', default=False,
+              help='Excludes git data from the backup',
+              is_flag=True)
+@click.option('-nh', '--nohidden', default=False,
+              help='Excludes hidden files and folders from the backup but keeps git data',
+              is_flag=True)
 # @click.option('-ai', '--autoinstall', default=False,
 #               help='Installs the node modules. Don\'t use it with -c.',
 #               is_flag=True)
 @click.option('-a', '--archive', default=False,
               help='Archives the project folder instead of making a copy of it',
               is_flag=True)
-def main(path, output, rule, dependencies, archive):
+def main(path, output, rule, dependencies, noexcl, nogit, nohidden, archive):
     """Dev projects backups made easy"""
     start_time = time.time()
     proj_fld = None
     missing_value = False
+    options = {
+        'dependencies': dependencies,
+        'noexcl': noexcl,
+        'nogit': nogit,
+        'nohidden': nohidden,
+    }
 
     # Extended validation for the options that have a Click.path() type
     for opt in (('path', path), ('output', output)):
@@ -340,10 +362,10 @@ def main(path, output, rule, dependencies, archive):
         dst = f'{proj_fld}_{utils.get_dt()}'
     if archive:
         # If the -a switch is provided to the script, we use make_archive() and exclude the node_module folder
-        make_archive(proj_fld, dst, rule, uid, start_time)
+        make_archive(proj_fld, dst, rule, options, uid, start_time)
     else:
         # Else if we don't want an archive we will do a copy of the project instead
-        duplicate(proj_fld, dst, rule, dependencies, uid, start_time)
+        duplicate(proj_fld, dst, rule, options, uid, start_time)
 
         # TODO2: Replace this with before and after commands
         # if autoinstall:

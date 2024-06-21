@@ -19,12 +19,23 @@ def out(uid, operation, lvl, message):
     echo(f'[{uid}:{get_dt()}:{operation}][{lvl}] {message}')
 
 
-def get_files(path, exclusions):
+def get_files(path, exclusions, noexcl, nogit):
     """Lists the files contained in a given folder, without symlinks
     :param path: String referring to the path that needs it's content to be listed
     :param exclusions: Dictionary containing the files and folders we want to exclude
+    :param noexcl: boolean, disables the exclusions if True
+    :param nogit: boolean, excludes git data from the backup
     :return: A list of files, without any possible node_modules folder
     """
+    if nogit:
+        exclusions['folders'].append('.git')
+        exclusions['files'].append('.gitignore')
+    if noexcl:
+        return [
+            file for file in os.listdir(path)
+            if (exclusions['dep_folder'] and file != exclusions['dep_folder'])
+            or not exclusions['dep_folder']
+        ]
     elem_list = []
     dep_fld = exclusions['dep_folder']
     for elem in os.listdir(path):
