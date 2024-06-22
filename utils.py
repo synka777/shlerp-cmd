@@ -15,22 +15,32 @@ def exists(path):
     return True if os.path.exists(path) else False
 
 
+def iglob_hidden(*args, **kwargs):
+    """A glob.iglob that include dot files and hidden files"""
+    """The credits goes to the user polyvertex for this function"""
+    old_ishidden = glob._ishidden
+    glob._ishidden = lambda x: False
+    try:
+        yield from glob.iglob(*args, **kwargs)
+    finally:
+        glob._ishidden = old_ishidden
+
+
 def out(uid, operation, lvl, message):
     echo(f'[{uid}:{get_dt()}:{operation}][{lvl}] {message}')
 
 
-def get_files(path, exclusions, noexcl, nogit):
+def get_files(path, exclusions, options):
     """Lists the files contained in a given folder, without symlinks
     :param path: String referring to the path that needs it's content to be listed
     :param exclusions: Dictionary containing the files and folders we want to exclude
-    :param noexcl: boolean, disables the exclusions if True
-    :param nogit: boolean, excludes git data from the backup
+    :param options: dictionary/object containing exclusion options
     :return: A list of files, without any possible node_modules folder
     """
-    if nogit:
+    if options['nogit']:
         exclusions['folders'].append('.git')
         exclusions['files'].append('.gitignore')
-    if noexcl:
+    if options['noexcl']:
         return [
             file for file in os.listdir(path)
             if (exclusions['dep_folder'] and file != exclusions['dep_folder'])
@@ -40,6 +50,15 @@ def get_files(path, exclusions, noexcl, nogit):
     dep_fld = exclusions['dep_folder']
     for elem in os.listdir(path):
         excl_matched = False
+        if (
+            not options['keephidden'] and
+            elem.startswith('.') and
+            not (
+                elem == '.git' or
+                elem == '.gitignore'
+            )
+        ):
+            excl_matched = True
         if os.path.isdir(f'{path}/{elem}'):
             if exclusions['folders']:
                 for fld_excl in exclusions['folders']:

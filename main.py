@@ -6,7 +6,6 @@ Released under the GNU Affero General Public License v3.0
 import utils
 import os
 import shutil
-import glob
 from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
 import time
 import click
@@ -165,9 +164,10 @@ def make_archive(project_fld, dst_path, rule, options, uid, started):
     with ZipFile(f'{dst_path}.zip', 'w', ZIP_DEFLATED, compresslevel=9) as zip_archive:
         fld_count = file_count = symlink_count = 0
         success = False
-        for elem_name in glob.iglob(project_fld + '/**', recursive=True):
+        for elem_name in utils.iglob_hidden(project_fld + '/**', recursive=True):
             rel_name = elem_name.split(f'{project_fld}/')[1]
             proceed = True
+            output = True
             exclusions = rule['actions']['exclude']
             dep_folder = exclusions['dep_folder']
             if options['nogit']:
@@ -180,7 +180,7 @@ def make_archive(project_fld, dst_path, rule, options, uid, started):
                 proceed = True
             else:
                 if os.path.isdir(elem_name):
-                    if (dep_folder and dep_folder in rel_name) or rel_name == '':
+                    if dep_folder and dep_folder in rel_name:
                         proceed = False
                     if exclusions['folders']:
                         for fld_excl in exclusions['folders']:
@@ -190,8 +190,8 @@ def make_archive(project_fld, dst_path, rule, options, uid, started):
                     if exclusions['files']:
                         for file_excl in exclusions['files']:
                             if (
-                                file_excl == rel_name.split('/')[-1] or
-                                (dep_folder and dep_folder in rel_name)
+                                    file_excl == rel_name.split('/')[-1] or
+                                    (dep_folder and dep_folder in rel_name)
                             ):
                                 proceed = False
                     if exclusions['folders']:
@@ -199,7 +199,23 @@ def make_archive(project_fld, dst_path, rule, options, uid, started):
                             if fld_excl in rel_name:
                                 proceed = False
 
+            # Excludes all hidden files from the backup except git data
+            path_chunks = elem_name.split('/')
+            for chunk in path_chunks:
+                if chunk.startswith('.'):
+                    if not path_chunks[-1].startswith('.'):
+                        output = False
+                    if (
+                        not options['keephidden'] and
+                        not (
+                            chunk == '.git' or
+                            chunk == '.gitignore'
+                        )
+                    ):
+                        proceed = False
             if proceed:
+                if rel_name == '':
+                    output = False
                 # If the elem_name is actually a symbolic link, use zip_info and zipfile.writestr()
                 # Source: https://gist.github.com/kgn/610907
                 if os.path.islink(elem_name):
@@ -212,7 +228,8 @@ def make_archive(project_fld, dst_path, rule, options, uid, started):
                     zip_info.external_attr = 2716663808
                     try:
                         zip_archive.writestr(zip_info, os.readlink(f'{elem_name}'))
-                        out(uid, 'arch', 'I', f'Done: {rel_name}')
+                        if output:
+                            out(uid, 'arch', 'I', f'Done: {rel_name}')
                         success = True
                     except Exception as exc:
                         out(uid, 'arch', 'E', f'A problem happened while handling {rel_name}: {exc}')
@@ -223,7 +240,8 @@ def make_archive(project_fld, dst_path, rule, options, uid, started):
                             fld_count += 1
                         else:
                             file_count += 1
-                        out(uid, 'arch', 'I', f'Done: {rel_name}')
+                        if output:
+                            out(uid, 'arch', 'I', f'Done: {rel_name}')
                         success = True
                     except Exception as exc:
                         out(uid, 'arch', 'E', f'A problem happened while handling {rel_name}: {exc}')
@@ -232,7 +250,7 @@ def make_archive(project_fld, dst_path, rule, options, uid, started):
             out(uid, 'arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}')
             out(uid, 'arch', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip')
         else:
-            out(uid, 'arch', 'W', 'Incomplete archive: {dst_path}.zip')
+            out(uid, 'arch', 'W', f'Incomplete archive: {dst_path}.zip')
 
 
 def duplicate(path, dst, rule, options, uid, started):
@@ -247,7 +265,7 @@ def duplicate(path, dst, rule, options, uid, started):
     try:
         fld_count = file_count = symlink_count = 0
         exclusions = rule['actions']['exclude']
-        elem_list = utils.get_files(path, exclusions, options['noexcl'], options['nogit'])
+        elem_list = utils.get_files(path, exclusions, options)
         os.mkdir(dst)
         for elem in elem_list:
             orig = f'{path}/{elem}'
@@ -294,7 +312,7 @@ def duplicate(path, dst, rule, options, uid, started):
 @click.option('-ng', '--nogit', default=False,
               help='Excludes git data from the backup',
               is_flag=True)
-@click.option('-nh', '--nohidden', default=False,
+@click.option('-kh', '--keephidden', default=False,
               help='Excludes hidden files and folders from the backup but keeps git data',
               is_flag=True)
 # @click.option('-ai', '--autoinstall', default=False,
@@ -303,7 +321,7 @@ def duplicate(path, dst, rule, options, uid, started):
 @click.option('-a', '--archive', default=False,
               help='Archives the project folder instead of making a copy of it',
               is_flag=True)
-def main(path, output, rule, dependencies, noexcl, nogit, nohidden, archive):
+def main(path, output, rule, dependencies, noexcl, nogit, keephidden, archive):
     """Dev projects backups made easy"""
     start_time = time.time()
     proj_fld = None
@@ -312,7 +330,7 @@ def main(path, output, rule, dependencies, noexcl, nogit, nohidden, archive):
         'dependencies': dependencies,
         'noexcl': noexcl,
         'nogit': nogit,
-        'nohidden': nohidden,
+        'keephidden': keephidden,
     }
 
     # Extended validation for the options that have a Click.path() type
