@@ -1,0 +1,8 @@
+bumsave() {
+    cmd="python3 ~/Projects/Python/bumsaver/nodesave.py"
+    cmd+=" $@"
+    if [[ "$@" != *"-p"* ]]; then
+            cmd+=" -p `pwd`"
+    fi
+    eval $cmd
+}

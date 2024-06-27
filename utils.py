@@ -27,7 +27,7 @@ def iglob_hidden(*args, **kwargs):
 
 
 def out(uid, operation, lvl, message):
-    echo(f'[{uid}:{get_dt()}:{operation}][{lvl}] {message}')
+    echo(f"[{(f'{uid}:' if uid else '')}{get_dt()}:{operation}][{lvl}] {message}")
 
 
 def get_files(path, exclusions, options):

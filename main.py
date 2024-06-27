@@ -298,7 +298,7 @@ def duplicate(path, dst, rule, options, uid, started):
 
 @click.command()
 @click.option('-p', '--path', type=click.Path(),
-              help='The path of the project we want to backup. Please use absolute paths for now')
+              help='The path of the project we want to backup.')
 @click.option('-o', '--output', type=click.Path(),
               help='The location where we want to store the backup')
 @click.option('-r', '--rule',
