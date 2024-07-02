@@ -6,6 +6,7 @@ Released under the GNU Affero General Public License v3.0
 import utils
 import os
 import shutil
+from os.path import exists
 from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
 import time
 import click
@@ -18,10 +19,11 @@ def auto_detect(proj_fld, settings, uid):
     leads = []
     tried_history = False
     tried_all = False
+
     while True:
         # Try...Except
         try:
-            with open('./rules.json', 'r') as read_file:
+            with open(f'{os.getcwd()}/rules.json', 'r') as read_file:
                 rules = json.load(read_file)
         except FileNotFoundError:
             out(uid, 'scan', 'E', 'rules.json not found')
@@ -29,7 +31,7 @@ def auto_detect(proj_fld, settings, uid):
         # If the rules history hasn't been checked yet, only keep the rules that are mentioned in the tmp file
         if not tried_history:
             try:
-                with open('./tmp.json', 'r') as read_tmp:
+                with open(f'{os.getcwd()}/tmp.json', 'r') as read_tmp:
                     tmp_file = json.load(read_tmp)
                     rules_history = tmp_file['rules_history']
                     for rule in rules:
@@ -38,6 +40,9 @@ def auto_detect(proj_fld, settings, uid):
                             rules.pop(current_pos)
             except (FileNotFoundError, ValueError):
                 out(uid, 'scan', 'I', 'Temp file not found, will use the whole ruleset instead')
+                tmp_file = {'rules_history': []}
+                with open(f'{os.getcwd()}/tmp.json', 'w') as write_tmp:
+                    write_tmp.write(json.dumps(tmp_file, indent=4))
                 tried_history = True
         else:
             to_prune = []
@@ -64,7 +69,7 @@ def auto_detect(proj_fld, settings, uid):
                     else:
                         # If only one filename check if it exists, then check its content
                         filename = names[0]
-                        if os.path.exists(f'{proj_fld}/{filename}'):
+                        if exists(f'{proj_fld}/{filename}'):
                             # If the pattern defined in the rule is not set to null, search it in the file
                             if pattern:
                                 with open(f'{proj_fld}/{filename}', 'r') as file_content:
@@ -81,13 +86,13 @@ def auto_detect(proj_fld, settings, uid):
                             })
                         else:
                             # If the filename is not an extension, check for its existence right away
-                            if os.path.exists(f'{proj_fld}/{name}'):
+                            if exists(f'{proj_fld}/{name}'):
                                 total += file['weight']
 
             for folder in rule['detect']['folders']:
                 name = folder['name']
                 # We check if each folder from the current rule exists
-                if os.path.exists(f'{proj_fld}/{name}/'):
+                if exists(f'{proj_fld}/{name}/'):
                     # If we don't have any files to check in the folder, increment the rule weight
                     if not folder['files']:
                         total += folder['weight']
@@ -95,7 +100,7 @@ def auto_detect(proj_fld, settings, uid):
                         # Make sure that each files from the folder element exists before increasing the weight
                         match = True
                         for file in folder['files']:
-                            if not os.path.exists(f'{proj_fld}/{folder["name"]}/{file}'):
+                            if not exists(f'{proj_fld}/{folder["name"]}/{file}'):
                                 match = False
                         if match:
                             total += folder['weight']
@@ -206,11 +211,11 @@ def make_archive(project_fld, dst_path, rule, options, uid, started):
                     if not path_chunks[-1].startswith('.'):
                         output = False
                     if (
-                        not options['keephidden'] and
-                        not (
-                            chunk == '.git' or
-                            chunk == '.gitignore'
-                        )
+                            not options['keephidden'] and
+                            not (
+                                    chunk == '.git' or
+                                    chunk == '.gitignore'
+                            )
                     ):
                         proceed = False
             if proceed:
@@ -272,7 +277,7 @@ def duplicate(path, dst, rule, options, uid, started):
             full_dst = f'{dst}/{elem}'
             if os.path.isdir(orig):
                 shutil.copytree(orig, full_dst, symlinks=True)
-                if utils.exists(full_dst):
+                if exists(full_dst):
                     out(uid, 'copy', 'I', f'Done: {path}/{elem}')
                     fld_count += 1
             else:
@@ -281,13 +286,13 @@ def duplicate(path, dst, rule, options, uid, started):
                     symlink_count += 1
                 else:
                     file_count += 1
-                if utils.exists(full_dst):
+                if exists(full_dst):
                     out(uid, 'copy', 'I', f'Done: {path}/{elem}')
         echo('------------')
         # out(uid, 'arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}')
         out(uid, 'copy', 'I', f'✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/')
         dep_folder = exclusions["dep_folder"]
-        if options['dependencies'] and utils.exists(f'{path}/{dep_folder}'):
+        if options['dependencies'] and exists(f'{path}/{dep_folder}'):
             start_dep_folder = time.time()
             out(uid, 'copy', 'I', f'Processing {dep_folder}...')
             shutil.copytree(f'{path}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
@@ -346,8 +351,10 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, archive):
         exit()
     if not path:
         proj_fld = os.getcwd()
+    home = os.path.expanduser("~")
+    #os.chdir(f'{home}/.local/bin/shlerp/')
 
-    with open('./settings.json', 'r') as read_settings:
+    with open(f'{os.getcwd()}/settings.json', 'r') as read_settings:
         settings = json.load(read_settings)
 
     uid = utils.suid()
@@ -360,7 +367,7 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, archive):
             out(uid, 'prep', 'E', 'Please select a rule to apply with --rule')
             exit()
     else:
-        with open('./rules.json', 'r') as read_file:
+        with open(f'{os.getcwd()}/rules.json', 'r') as read_file:
             rules = json.load(read_file)
             match = False
             for stored_rule in rules:

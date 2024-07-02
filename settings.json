@@ -1,4 +1,5 @@
 {
+    "rel_setup_path":".local/bin",
     "rules": {
         "history_limit": 2
     }

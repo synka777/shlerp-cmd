@@ -1,5 +1,5 @@
-bumsave() {
-    cmd="python3 ~/Projects/Python/bumsaver/nodesave.py"
+shlerp() {
+    cmd="python3 ~/.local/bin/shlerp/main.py"
     cmd+=" $@"
     if [[ "$@" != *"-p"* ]]; then
             cmd+=" -p `pwd`"

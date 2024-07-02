@@ -17,7 +17,7 @@
             "folders":[
                 {
                     "name":"venv",
-                    "files":[".Python"],
+                    "files":["pyvenv.cfg"],
                     "weight":4
                 }
             ]
@@ -28,7 +28,7 @@
             "after":[],
             "exclude":{
                 "files":[],
-                "folders":["venv"],
+                "folders":["venv", "__pycache__"],
                 "dep_folder": null
             }
         }

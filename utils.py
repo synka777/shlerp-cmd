@@ -2,17 +2,10 @@ import os
 import random
 from uuid import uuid4
 from datetime import datetime
+from os.path import exists
 from click import echo
 import glob
 import json
-
-
-def exists(path):
-    """Checks if a file or folder exists
-    :param path: String referring to the path we want to check
-    :return: A boolean
-    """
-    return True if os.path.exists(path) else False
 
 
 def iglob_hidden(*args, **kwargs):
@@ -180,7 +173,7 @@ def history_updated(rule, settings, tmp_file):
                 current_pos = history.index(current_lang)
                 history.pop(current_pos)
                 history.insert(0, current_lang)
-                with open('tmp.json', 'w') as write_tmp:
+                with open(f'{os.getcwd()}/tmp.json', 'w') as write_tmp:
                     tmp_file['rules_history'] = history
                     write_tmp.write(json.dumps(tmp_file, indent=4))
                     return True
@@ -195,10 +188,10 @@ def history_updated(rule, settings, tmp_file):
                 write_tmp.write(json.dumps(tmp_file, indent=4))
                 return True
     except (FileNotFoundError, ValueError):
-        with open("./tmp.json", 'a') as write_tmp:
+        with open(f'{os.getcwd()}/tmp.json', 'a') as write_tmp:
             write_tmp.write(json.dumps({
                 "rules_history": [current_lang]
             }))
-            if exists("./tmp.json"):
+            if exists(f'{os.getcwd()}/tmp.json'):
                 return True
     return False
