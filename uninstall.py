@@ -33,7 +33,6 @@ def uninstall():
                     write_tmp_rc.write(cleaned_rc)
                 if exists(tmp_rc_path):
                     subprocess.run(["mv", tmp_rc_path, rc_file_path])
-                    print(source_line)
             else:
                 double_check = False
                 out(None, 'uninstall', 'I', f'[1/2] OK: Function not found in {rc_file}')

@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 from os import environ
 from os.path import join, exists
 import click
@@ -31,6 +32,7 @@ def setup():
             if exists(f'{setup_folder}{elem}'):
                 count += 1
 
+        # Step 1: Copy the files into the setup folder
         # Check if the project files are all installed. If so, notify the user
         if count == len(project_files):
             utils.out(None, 'setup', 'I', '[1/3] OK: Project files already installed')
@@ -46,7 +48,7 @@ def setup():
             except FileNotFoundError as not_found_err:
                 utils.out(None, 'setup', 'E', f'[1/3]{not_found_err}')
 
-        # Add the alias into .bashrc/.zshrc
+        # Step 2: Add the alias into .bashrc/.zshrc
         shell = environ['SHELL']
         shell_string = shell.split('/')[2] if 'bash' in shell or 'zsh' in shell else None
         if not shell_string:
@@ -68,16 +70,27 @@ def setup():
                     write_rc.write(f'source {setup_folder}function.template')
                     utils.out(None, 'setup', 'I', f'[2/3] OK: Alias added to {rc_file}')
 
-        # Create a venv in the setup folder, installs the requirements by itself
+        # Step 3: Create a venv in the setup folder and install the requirements
         venv_folder = join(setup_folder, "venv")
+        #pip_name = utils.get_pip_str(setup_folder)
         if not exists(venv_folder):
             venv.create(venv_folder, with_pip=True)
-            utils.out(None, 'setup', 'I', '[3/3] OK: Virtual environment set up')
+            # Then proceed with the requirements installation
+            if utils.req_installed(setup_folder):
+                utils.out(None, 'setup', 'I', '[3/3] OK: Virtual environment set up')
+            else:
+                utils.out(None, 'setup', 'E',
+                          f'ERROR: A problem happened during the requirements installation')
+                exit()
         else:
-            utils.out(None, 'setup', 'I', '[3/3] OK: Virtual environment already installed')
+            if utils.req_installed(setup_folder):
+                utils.out(None, 'setup', 'I', '[3/3] OK: Virtual environment already installed')
+            else:
+                utils.out(None, 'setup', 'E', 'ERROR: A problem happened during the requirements installation')
+                exit()
 
     else:
-        utils.out(None, 'setup', 'E', 'ERROR: This system is not supported')
+        utils.out(None, 'setup', 'E', 'ERROR: Shell or system not supported')
         exit()
 
 

@@ -1,11 +1,35 @@
 import os
 import random
+import subprocess
 from uuid import uuid4
 from datetime import datetime
 from os.path import exists
 from click import echo
 import glob
 import json
+
+
+def req_installed(setup_folder):
+    """Attempts to install requirements
+    :param setup_folder: str representing the setup folder
+    :return: True if it worked, else False
+    """
+    try:
+        venv_bin = f'{setup_folder}venv/bin/'
+        pip_path = f'{venv_bin}pip'
+        if not exists(pip_path):
+            if exists(f'{venv_bin}pip3'):
+                pip_path = f'{venv_bin}pip3'
+            else:
+                return False
+        subprocess.check_call([
+            pip_path,
+            'install', '-r',
+            f'{os.getcwd()}/requirements.txt'
+        ])
+        return True
+    except subprocess.CalledProcessError:
+        return False
 
 
 def iglob_hidden(*args, **kwargs):

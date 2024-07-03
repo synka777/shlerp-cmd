@@ -352,7 +352,7 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, archive):
     if not path:
         proj_fld = os.getcwd()
     home = os.path.expanduser("~")
-    #os.chdir(f'{home}/.local/bin/shlerp/')
+    os.chdir(f'{home}/.local/bin/shlerp/')
 
     with open(f'{os.getcwd()}/settings.json', 'r') as read_settings:
         settings = json.load(read_settings)
