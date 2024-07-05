@@ -307,7 +307,7 @@ def duplicate(path, dst, rule, options, uid, started):
 @click.option('-o', '--output', type=click.Path(),
               help='The location where we want to store the backup')
 @click.option('-r', '--rule',
-              help='Manually specify a rule name if you want')
+              help='Manually specify a rule name if you want to skip the language detection process')
 @click.option('-d', '--dependencies', default=False,
               help='Includes the folders marked as dependency folders in the duplication. Only works when using -a',
               is_flag=True)
