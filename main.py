@@ -26,8 +26,8 @@ def auto_detect(proj_fld, settings, uid):
             with open(f'{os.getcwd()}/rules.json', 'r') as read_file:
                 rules = json.load(read_file)
         except FileNotFoundError:
-            out(uid, 'scan', 'E', 'rules.json not found')
-            exit()
+            out('scan', 'E', 'rules.json not found', uid)
+            exit(1)
         # If the rules history hasn't been checked yet, only keep the rules that are mentioned in the tmp file
         if not tried_history:
             try:
@@ -39,7 +39,7 @@ def auto_detect(proj_fld, settings, uid):
                             current_pos = rules.index(rule)
                             rules.pop(current_pos)
             except (FileNotFoundError, ValueError):
-                out(uid, 'scan', 'I', 'Temp file not found, will use the whole ruleset instead')
+                out('scan', 'I', 'Temp file not found, will use the whole ruleset instead', uid)
                 tmp_file = {'rules_history': []}
                 with open(f'{os.getcwd()}/tmp.json', 'w') as write_tmp:
                     write_tmp.write(json.dumps(tmp_file, indent=4))
@@ -114,7 +114,8 @@ def auto_detect(proj_fld, settings, uid):
         else:
             # If the main method we use to find weight (filename matching) hasn't matched anything
             # Use iglob to match files that have a given extension and update the weights
-            leads = utils.crawl_for_weight(proj_fld, leads, uid)
+            out('scan', 'I', 'Crawling...', uid)
+            leads = utils.crawl_for_weight(proj_fld, leads)
             crawled = True
             if utils.weight_found(leads):
                 leads = utils.elect(leads)
@@ -122,7 +123,8 @@ def auto_detect(proj_fld, settings, uid):
         # If weight have been found BUT we have multiple winners, search for more weight
         if utils.weight_found(leads) and len(leads) > 1:
             if not crawled:
-                leads = utils.crawl_for_weight(proj_fld, leads, uid)
+                out('scan', 'I', 'Crawling...', uid)
+                leads = utils.crawl_for_weight(proj_fld, leads)
 
         if not tried_history:
             tried_history = True
@@ -134,24 +136,24 @@ def auto_detect(proj_fld, settings, uid):
             # If we have more than one language remaining it means the auto-detection wasn't successful
             leads = list([])
             if tried_all:
-                out(uid, 'scan', 'W', 'Unable to determine the main language for this project')
+                out('scan', 'W', 'Unable to determine the main language for this project', uid)
                 break
             else:
-                out(uid, 'scan', 'I', 'Trying the whole ruleset...')
+                out('scan', 'I', 'Trying the whole ruleset...', uid)
                 # Ah shit, here we go again
         else:
             if utils.weight_found(leads):
                 # Successful exit point
                 # Check if the history in the tmp file can be updated before breaking out of the loop
                 if not utils.history_updated(leads[0], settings, tmp_file):
-                    out(uid, 'scan', 'I', 'A problem occurred when trying to write in tmp.json')
+                    out('scan', 'I', 'A problem occurred when trying to write in tmp.json', uid)
                     break
                 else:
                     break
             else:
                 leads = list([])
                 if tried_all:
-                    out(uid, 'scan', 'W', 'Nothing matched')
+                    out('scan', 'W', 'Nothing matched', uid)
                     break
                 # Ah shit, here we go again
     return leads[0] if leads else False
@@ -232,12 +234,12 @@ def make_archive(project_fld, dst_path, rule, options, uid, started):
                     # say, symlink attr magic...
                     zip_info.external_attr = 2716663808
                     try:
-                        zip_archive.writestr(zip_info, os.readlink(f'{elem_name}'))
+                        zip_archive.writestr(zip_info, os.readlink(f'{elem_name}', uid))
                         if output:
-                            out(uid, 'arch', 'I', f'Done: {rel_name}')
+                            out('arch', 'I', f'Done: {rel_name}', uid)
                         success = True
                     except Exception as exc:
-                        out(uid, 'arch', 'E', f'A problem happened while handling {rel_name}: {exc}')
+                        out('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid)
                 else:
                     try:
                         zip_archive.write(f'{elem_name}', arcname=f'{rel_name}')
@@ -246,16 +248,16 @@ def make_archive(project_fld, dst_path, rule, options, uid, started):
                         else:
                             file_count += 1
                         if output:
-                            out(uid, 'arch', 'I', f'Done: {rel_name}')
+                            out('arch', 'I', f'Done: {rel_name}', uid)
                         success = True
                     except Exception as exc:
-                        out(uid, 'arch', 'E', f'A problem happened while handling {rel_name}: {exc}')
+                        out('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid)
         if success:
             echo('------------')
-            out(uid, 'arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}')
-            out(uid, 'arch', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip')
+            out('arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}', uid)
+            out('arch', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip', uid)
         else:
-            out(uid, 'arch', 'W', f'Incomplete archive: {dst_path}.zip')
+            out('arch', 'W', f'Incomplete archive: {dst_path}.zip', uid)
 
 
 def duplicate(path, dst, rule, options, uid, started):
@@ -278,7 +280,7 @@ def duplicate(path, dst, rule, options, uid, started):
             if os.path.isdir(orig):
                 shutil.copytree(orig, full_dst, symlinks=True)
                 if exists(full_dst):
-                    out(uid, 'copy', 'I', f'Done: {path}/{elem}')
+                    out('copy', 'I', f'Done: {path}/{elem}', uid)
                     fld_count += 1
             else:
                 shutil.copy(orig, full_dst)
@@ -287,18 +289,18 @@ def duplicate(path, dst, rule, options, uid, started):
                 else:
                     file_count += 1
                 if exists(full_dst):
-                    out(uid, 'copy', 'I', f'Done: {path}/{elem}')
+                    out('copy', 'I', f'Done: {path}/{elem}', uid)
         echo('------------')
-        # out(uid, 'arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}')
-        out(uid, 'copy', 'I', f'✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/')
+        # out('arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}', uid)
+        out('copy', 'I', f'✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/', uid)
         dep_folder = exclusions["dep_folder"]
         if options['dependencies'] and exists(f'{path}/{dep_folder}'):
             start_dep_folder = time.time()
-            out(uid, 'copy', 'I', f'Processing {dep_folder}...')
+            out('copy', 'I', f'Processing {dep_folder}...', uid)
             shutil.copytree(f'{path}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
-            out(uid, 'copy', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/')
+            out('copy', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/', uid)
     except Exception as exc:
-        out(uid, 'copy', 'E', f'during the duplication {exc}')
+        out('copy', 'E', f'during the duplication {exc}', uid)
 
 
 @click.command()
@@ -348,7 +350,7 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, archive):
                 echo(f'Error: Option \'--{opt[0]}\' requires an argument.')
                 missing_value = True
     if missing_value:
-        exit()
+        exit(0)
     if not path:
         proj_fld = os.getcwd()
     home = os.path.expanduser("~")
@@ -362,10 +364,10 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, archive):
         rule_detected = auto_detect(proj_fld, settings, uid)
         if rule_detected:
             rule = rule_detected
-            out(uid, 'scan', 'I', f'Matching rule: {rule["name"]}')
+            out('scan', 'I', f'Matching rule: {rule["name"]}', uid)
         else:
-            out(uid, 'prep', 'E', 'Please select a rule to apply with --rule')
-            exit()
+            out('prep', 'E', 'Please select a rule to apply with --rule', uid)
+            exit(0)
     else:
         with open(f'{os.getcwd()}/rules.json', 'r') as read_file:
             rules = json.load(read_file)
@@ -375,8 +377,8 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, archive):
                     rule = stored_rule
                     match = True
             if not match:
-                out(uid, 'scan', 'E', 'Rule name not found')
-                exit()
+                out('scan', 'E', 'Rule name not found', uid)
+                exit(0)
 
     # If we don't have a particular output folder, use the same as the project
     if output:

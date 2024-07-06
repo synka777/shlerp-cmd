@@ -1,9 +1,8 @@
 import json
 import os
 from os import environ
-from os.path import join, exists
+from os.path import exists
 from utils import out
-import click
 import sys
 import subprocess
 
@@ -35,19 +34,19 @@ def uninstall():
                     subprocess.run(["mv", tmp_rc_path, rc_file_path])
             else:
                 double_check = False
-                out(None, 'uninstall', 'I', f'[1/2] OK: Function not found in {rc_file}')
+                out('uninstall', 'I', f'[1/2] OK: Function not found in {rc_file}')
 
         if double_check:
             with open(rc_file_path, 'r') as read_rc:
                 if source_line not in read_rc:
-                    out(None, 'uninstall', 'I', f'[1/2] OK: Uninstalled the function from {rc_file}')
+                    out('uninstall', 'I', f'[1/2] OK: Uninstalled the function from {rc_file}')
                 else:
-                    out(None, 'uninstall', 'E', f'[1/2] ERROR: Function still sourced in {rc_file}')
+                    out('uninstall', 'E', f'[1/2] ERROR: Function still sourced in {rc_file}')
 
     # Step 2: Remove the installation folder
     subprocess.Popen([
         'rm', '-rf', f'{setup_folder}',
-        '&&' f'{out(None, "uninstall", "I", f"[2/2] OK: Uninstalled shlerp from {setup_folder}")}'
+        '&&' f'{out("uninstall", "I", f"[2/2] OK: Uninstalled shlerp from {setup_folder}")}'
     ])
     sys.exit(0)
 

@@ -5,32 +5,58 @@ from uuid import uuid4
 from datetime import datetime
 from os.path import exists
 from click import echo
+import click
 import glob
 import json
 
 
-def req_installed(setup_folder):
-    """Attempts to install requirements
-    :param setup_folder: str representing the setup folder
-    :return: True if it worked, else False
-    """
-    try:
-        venv_bin = f'{setup_folder}venv/bin/'
-        pip_path = f'{venv_bin}pip'
-        if not exists(pip_path):
-            if exists(f'{venv_bin}pip3'):
-                pip_path = f'{venv_bin}pip3'
-            else:
-                return False
-        subprocess.check_call([
-            pip_path,
-            'install', '-r',
-            f'{os.getcwd()}/requirements.txt'
-        ])
-        return True
-    except subprocess.CalledProcessError:
-        return False
+# Common
 
+def out(operation, lvl, message, *args):
+    """Standardizes the output format
+    :param operation, short string that indicates to the user the step we are going through
+    :param lvl, letter that indicates if the displayed message is a Info, Warning or Error
+    :param message, the message we want to print
+    :param *args, (optional) it's only expected to receive a string representing an uid.
+    """
+    uid = None
+    if len(args) > 0:
+        uid = args[0]
+    output = f"[{(f'{uid}:' if uid else '')}{get_dt()}:{operation}][{lvl}] {message}"
+    if lvl == 'I':
+        echo(output)
+    else:
+        color = None
+        if lvl == 'E':
+            color = 'red'
+        if lvl == 'W':
+            color = 'bright_yellow'
+        echo(click.style(output, fg=color))
+
+
+def get_dt():
+    """
+    :return: A timestamp in string format
+    """
+    return str(datetime.now().strftime('%d%m%y%H%M%S'))
+
+
+def suid():
+    """Generates a short uid
+    :return: A unique identifier with a fixed length of 6 characters
+    """
+    chunks = str(uuid4()).split('-')
+    count = 0
+    uid = ''
+    while count < 3:
+        chunk = random.choice(chunks)
+        uid = f'{uid}{chunk[:2]}'
+        chunks.remove(chunk)
+        count += 1
+    return uid
+
+
+# Shlerp script
 
 def iglob_hidden(*args, **kwargs):
     """A glob.iglob that include dot files and hidden files"""
@@ -41,10 +67,6 @@ def iglob_hidden(*args, **kwargs):
         yield from glob.iglob(*args, **kwargs)
     finally:
         glob._ishidden = old_ishidden
-
-
-def out(uid, operation, lvl, message):
-    echo(f"[{(f'{uid}:' if uid else '')}{get_dt()}:{operation}][{lvl}] {message}")
 
 
 def get_files(path, exclusions, options):
@@ -99,28 +121,6 @@ def get_files(path, exclusions, options):
     return elem_list
 
 
-def get_dt():
-    """
-    :return: A timestamp in string format
-    """
-    return str(datetime.now().strftime('%d%m%y%H%M%S'))
-
-
-def suid():
-    """Generates a short uid
-    :return: A unique identifier with a fixed length of 6 characters
-    """
-    chunks = str(uuid4()).split('-')
-    count = 0
-    uid = ''
-    while count < 3:
-        chunk = random.choice(chunks)
-        uid = f'{uid}{chunk[:2]}'
-        chunks.remove(chunk)
-        count += 1
-    return uid
-
-
 def weight_found(leads):
     """Self-explanatory
     :param leads: List of objects representing potential winners
@@ -148,14 +148,13 @@ def elect(leads):
     return None if len(winner) == 0 else winner
 
 
-def crawl_for_weight(proj_fld, leads, uid):
+def crawl_for_weight(proj_fld, leads):
     """Crawl the project to find files matching the extensions we provide to this function
     :param uid: identifier representing the current program run
     :param proj_fld: text, the folder we want to process
     :param leads: object list containing languages names, extensions to crawl and weights
     :return: an updated list with some more weight (hopefully)
     """
-    out(uid, 'scan', 'I', 'Crawling...')
     for lead in leads:
         for ext in lead['extensions']:
             for _ in glob.iglob(f'{proj_fld}/**/{ext["name"]}', recursive=True):
@@ -219,3 +218,28 @@ def history_updated(rule, settings, tmp_file):
             if exists(f'{os.getcwd()}/tmp.json'):
                 return True
     return False
+
+
+# Setup script
+
+def req_installed(setup_folder):
+    """Attempts to install requirements
+    :param setup_folder: str representing the setup folder
+    :return: True if it worked, else False
+    """
+    try:
+        venv_bin = f'{setup_folder}venv/bin/'
+        pip_path = f'{venv_bin}pip'
+        if not exists(pip_path):
+            if exists(f'{venv_bin}pip3'):
+                pip_path = f'{venv_bin}pip3'
+            else:
+                return False
+        subprocess.check_call([
+            pip_path,
+            'install', '-r',
+            f'{os.getcwd()}/requirements.txt'
+        ])
+        return True
+    except subprocess.CalledProcessError:
+        return False
