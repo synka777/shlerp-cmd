@@ -19,7 +19,7 @@ def auto_detect(proj_fld, settings, uid):
     leads = []
     tried_history = False
     tried_all = False
-
+    # TODO: Pass to this func the total number of folders to process and the current count to display X out of Y
     while True:
         # Try...Except
         try:
@@ -159,9 +159,9 @@ def auto_detect(proj_fld, settings, uid):
     return leads[0] if leads else False
 
 
-def make_archive(project_fld, dst_path, rule, options, uid, started):
+def make_archive(proj_fld, dst_path, rule, options, uid, started):
     """Makes an archive of a given folder, without node_modules
-    :param project_fld: text, the folder we want to archive
+    :param proj_fld: text, the folder we want to archive
     :param dst_path: text, the location where we want to store the archive
     :param rule: dictionary/object representing the rule/language corresponding to the project
     :param options: dictionary/object containing exclusion options
@@ -171,8 +171,8 @@ def make_archive(project_fld, dst_path, rule, options, uid, started):
     with ZipFile(f'{dst_path}.zip', 'w', ZIP_DEFLATED, compresslevel=9) as zip_archive:
         fld_count = file_count = symlink_count = 0
         success = False
-        for elem_name in utils.iglob_hidden(project_fld + '/**', recursive=True):
-            rel_name = elem_name.split(f'{project_fld}/')[1]
+        for elem_name in utils.iglob_hidden(proj_fld + '/**', recursive=True):
+            rel_name = elem_name.split(f'{proj_fld}/')[1]
             proceed = True
             output = True
             exclusions = rule['actions']['exclude']
@@ -260,9 +260,9 @@ def make_archive(project_fld, dst_path, rule, options, uid, started):
             out('arch', 'W', f'Incomplete archive: {dst_path}.zip', uid)
 
 
-def duplicate(path, dst, rule, options, uid, started):
+def duplicate(proj_fld, dst, rule, options, uid, started):
     """Duplicates a project folder, processes all files and folders. node_modules will be processed last if cache = True
-    :param path: string that represents the project folder we want to duplicate
+    :param proj_fld: string that represents the project folder we want to duplicate
     :param dst: string that represents the destination folder where we will copy the project files
     :param rule: dictionary/object representing the rule/language corresponding to the project
     :param options: dictionary/object containing exclusion options
@@ -272,15 +272,15 @@ def duplicate(path, dst, rule, options, uid, started):
     try:
         fld_count = file_count = symlink_count = 0
         exclusions = rule['actions']['exclude']
-        elem_list = utils.get_files(path, exclusions, options)
+        elem_list = utils.get_files(proj_fld, exclusions, options)
         os.mkdir(dst)
         for elem in elem_list:
-            orig = f'{path}/{elem}'
+            orig = f'{proj_fld}/{elem}'
             full_dst = f'{dst}/{elem}'
             if os.path.isdir(orig):
                 shutil.copytree(orig, full_dst, symlinks=True)
                 if exists(full_dst):
-                    out('copy', 'I', f'Done: {path}/{elem}', uid)
+                    out('copy', 'I', f'Done: {proj_fld}/{elem}', uid)
                     fld_count += 1
             else:
                 shutil.copy(orig, full_dst)
@@ -289,15 +289,15 @@ def duplicate(path, dst, rule, options, uid, started):
                 else:
                     file_count += 1
                 if exists(full_dst):
-                    out('copy', 'I', f'Done: {path}/{elem}', uid)
+                    out('copy', 'I', f'Done: {proj_fld}/{elem}', uid)
         echo('------------')
         # out('arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}', uid)
         out('copy', 'I', f'✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/', uid)
         dep_folder = exclusions["dep_folder"]
-        if options['dependencies'] and exists(f'{path}/{dep_folder}'):
+        if options['dependencies'] and exists(f'{proj_fld}/{dep_folder}'):
             start_dep_folder = time.time()
             out('copy', 'I', f'Processing {dep_folder}...', uid)
-            shutil.copytree(f'{path}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
+            shutil.copytree(f'{proj_fld}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
             out('copy', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/', uid)
     except Exception as exc:
         out('copy', 'E', f'during the duplication {exc}', uid)
@@ -322,17 +322,21 @@ def duplicate(path, dst, rule, options, uid, started):
 @click.option('-kh', '--keephidden', default=False,
               help='Excludes hidden files and folders from the backup but keeps git data',
               is_flag=True)
-# @click.option('-ai', '--autoinstall', default=False,
-#               help='Installs the node modules. Don\'t use it with -c.',
-#               is_flag=True)
+@click.option('-b', '--batch', default=False,
+              help='This option is an alternative to -p.'
+                   'It will consider all the subfolder from the cwd as repositories and process it one by one.'
+                   'This is especially useful when you want to backup all your projects on an external location.',
+              is_flag=True)
 @click.option('-a', '--archive', default=False,
               help='Archives the project folder instead of making a copy of it',
               is_flag=True)
-def main(path, output, rule, dependencies, noexcl, nogit, keephidden, archive):
+def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, archive):
     """Dev projects backups made easy"""
     start_time = time.time()
-    proj_fld = None
+    curr_fld = None
     missing_value = False
+    show_count = True
+    backup_jobs = []
     options = {
         'dependencies': dependencies,
         'noexcl': noexcl,
@@ -345,60 +349,96 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, archive):
         if opt[1]:
             if not opt[1].startswith('-'):
                 if opt[0] == 'path':
-                    proj_fld = os.path.abspath(opt[1])
+                    curr_fld = os.path.abspath(opt[1])
             else:
                 echo(f'Error: Option \'--{opt[0]}\' requires an argument.')
                 missing_value = True
     if missing_value:
         exit(0)
     if not path:
-        proj_fld = os.getcwd()
+        curr_fld = os.getcwd()
     home = os.path.expanduser("~")
     os.chdir(f'{home}/.local/bin/shlerp/')
 
     with open(f'{os.getcwd()}/settings.json', 'r') as read_settings:
         settings = json.load(read_settings)
-
     uid = utils.suid()
-    if not rule:
-        rule_detected = auto_detect(proj_fld, settings, uid)
-        if rule_detected:
-            rule = rule_detected
-            out('scan', 'I', f'Matching rule: {rule["name"]}', uid)
+
+    def get_batch(**kwargs):
+        batch_list = []
+        if batch:
+            batch_list = [f'{curr_fld}/{f}' for f in os.listdir(curr_fld)]
         else:
-            out('prep', 'E', 'Please select a rule to apply with --rule', uid)
-            exit(0)
+            batch_list.append(curr_fld)
+
+        for batch_elem in batch_list:
+            elem_rule = None
+            if os.path.isdir(batch_elem):
+                if len(kwargs) > 0 and kwargs['rule']:
+                    elem_rule = kwargs['rule']
+                else:
+                    if not batch_elem.startswith('.'):
+                        out('prep', 'I', f'Processing {batch_elem}', uid)
+                        elem_rule = auto_detect(batch_elem, settings, uid)
+                if elem_rule:
+                    backup_jobs.append({
+                        'proj_fld': batch_elem,
+                        'rule': elem_rule
+                    })
+                else:
+                    out('scan', 'W', f'The folder {batch_elem} won\'t be processed as automatic rule detection failed', uid)
+
+    if not rule:
+        get_batch()
+        # rule_detected = auto_detect(curr_fld, settings, uid)
+        # if rule_detected:
+        #     rule = rule_detected
+        #     out('scan', 'I', f'Matching rule: {rule["name"]}', uid)
+        # else:
+        #     out('prep', 'E', 'Please select a rule to apply with --rule', uid)
+        #     exit(0)
     else:
         with open(f'{os.getcwd()}/rules.json', 'r') as read_file:
             rules = json.load(read_file)
             match = False
             for stored_rule in rules:
                 if stored_rule['name'].lower() == str(rule).lower():
-                    rule = stored_rule
+                    if batch:
+                        get_batch(rule=stored_rule)
+                    else:
+                        backup_jobs.append({
+                            'proj_fld': curr_fld,
+                            'rule': stored_rule
+                        })
                     match = True
             if not match:
                 out('scan', 'E', 'Rule name not found', uid)
                 exit(0)
 
+    # At this point we should have a list containing at least one project to process
+
     # If we don't have a particular output folder, use the same as the project
     if output:
         output = os.path.abspath(output)
-        project_name = proj_fld.split('/')[-1]
-        dst = f'{output}/{project_name}_{utils.get_dt()}'
+        for backup in backup_jobs:
+            project_name = backup['proj_fld'].split('/')[-1]
+            backup['dst'] = f'{output}/{project_name}_{utils.get_dt()}'
     else:
-        dst = f'{proj_fld}_{utils.get_dt()}'
-    if archive:
-        # If the -a switch is provided to the script, we use make_archive() and exclude the node_module folder
-        make_archive(proj_fld, dst, rule, options, uid, start_time)
-    else:
-        # Else if we don't want an archive we will do a copy of the project instead
-        duplicate(proj_fld, dst, rule, options, uid, start_time)
+        for backup in backup_jobs:
+            backup['dst'] = f'{backup["proj_fld"]}_{utils.get_dt()}'
 
-        # TODO2: Replace this with before and after commands
-        # if autoinstall:
-        #     echo('Installing npm packages...')
-        #             out()
-        #     os.system('npm i')
+    # At this point we should have the dst incorporated into the backup_job list
+
+    if len(backup_jobs) == 1:
+        show_count = False
+
+    for backup in backup_jobs:
+        if archive:
+            # If --archive is provided to the script, we use make_archive()
+            make_archive(backup['proj_fld'], backup['dst'], backup['rule'], options, uid, start_time)
+        else:
+            # Else if we don't want an archive we will do a copy of the project instead
+            duplicate(backup['proj_fld'], backup['dst'], backup['rule'], options, uid, start_time)
 
 
 if __name__ == '__main__':
