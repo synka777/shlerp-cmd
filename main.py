@@ -11,22 +11,29 @@ from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
 import time
 import click
 from click import echo
-from utils import out
+from utils import s_print
 import json
+
+summ = {
+    'total': 0,
+    'done': 0,
+    'failed': 0,
+    'failures': [],
+    'ad_failures': []
+}
 
 
 def auto_detect(proj_fld, settings, uid):
     leads = []
     tried_history = False
     tried_all = False
-    # TODO: Pass to this func the total number of folders to process and the current count to display X out of Y
     while True:
         # Try...Except
         try:
             with open(f'{os.getcwd()}/rules.json', 'r') as read_file:
                 rules = json.load(read_file)
         except FileNotFoundError:
-            out('scan', 'E', 'rules.json not found', uid)
+            s_print('scan', 'E', 'rules.json not found', uid)
             exit(1)
         # If the rules history hasn't been checked yet, only keep the rules that are mentioned in the tmp file
         if not tried_history:
@@ -39,7 +46,7 @@ def auto_detect(proj_fld, settings, uid):
                             current_pos = rules.index(rule)
                             rules.pop(current_pos)
             except (FileNotFoundError, ValueError):
-                out('scan', 'I', 'Temp file not found, will use the whole ruleset instead', uid)
+                s_print('scan', 'I', 'Temp file not found, will use the whole ruleset instead', uid)
                 tmp_file = {'rules_history': []}
                 with open(f'{os.getcwd()}/tmp.json', 'w') as write_tmp:
                     write_tmp.write(json.dumps(tmp_file, indent=4))
@@ -114,7 +121,6 @@ def auto_detect(proj_fld, settings, uid):
         else:
             # If the main method we use to find weight (filename matching) hasn't matched anything
             # Use iglob to match files that have a given extension and update the weights
-            out('scan', 'I', 'Crawling...', uid)
             leads = utils.crawl_for_weight(proj_fld, leads)
             crawled = True
             if utils.weight_found(leads):
@@ -123,7 +129,7 @@ def auto_detect(proj_fld, settings, uid):
         # If weight have been found BUT we have multiple winners, search for more weight
         if utils.weight_found(leads) and len(leads) > 1:
             if not crawled:
-                out('scan', 'I', 'Crawling...', uid)
+                s_print('scan', 'I', 'Crawling...', uid)
                 leads = utils.crawl_for_weight(proj_fld, leads)
 
         if not tried_history:
@@ -136,24 +142,23 @@ def auto_detect(proj_fld, settings, uid):
             # If we have more than one language remaining it means the auto-detection wasn't successful
             leads = list([])
             if tried_all:
-                out('scan', 'W', 'Unable to determine the main language for this project', uid)
+                s_print('scan', 'W', 'Unable to determine the main language for this project', uid)
                 break
             else:
-                out('scan', 'I', 'Trying the whole ruleset...', uid)
+                s_print('scan', 'I', 'Trying the whole ruleset...', uid)
                 # Ah shit, here we go again
         else:
             if utils.weight_found(leads):
                 # Successful exit point
                 # Check if the history in the tmp file can be updated before breaking out of the loop
                 if not utils.history_updated(leads[0], settings, tmp_file):
-                    out('scan', 'I', 'A problem occurred when trying to write in tmp.json', uid)
+                    s_print('scan', 'I', 'A problem occurred when trying to write in tmp.json', uid)
                     break
                 else:
                     break
             else:
                 leads = list([])
                 if tried_all:
-                    out('scan', 'W', 'Nothing matched', uid)
                     break
                 # Ah shit, here we go again
     return leads[0] if leads else False
@@ -171,6 +176,7 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started):
     with ZipFile(f'{dst_path}.zip', 'w', ZIP_DEFLATED, compresslevel=9) as zip_archive:
         fld_count = file_count = symlink_count = 0
         success = False
+        show_summ = [True if summ['total'] > 1 else False]
         for elem_name in utils.iglob_hidden(proj_fld + '/**', recursive=True):
             rel_name = elem_name.split(f'{proj_fld}/')[1]
             proceed = True
@@ -181,7 +187,9 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started):
                 exclusions['folders'].append('.git')
                 exclusions['files'].append('.gitignore')
 
+            #####################
             # Exclusion zone
+
             # Reject the current relative path if one of these conditions are matched
             if options['noexcl']:
                 proceed = True
@@ -220,6 +228,10 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started):
                             )
                     ):
                         proceed = False
+
+            #####################
+            # Archive making
+
             if proceed:
                 if rel_name == '':
                     output = False
@@ -236,10 +248,12 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started):
                     try:
                         zip_archive.writestr(zip_info, os.readlink(f'{elem_name}', uid))
                         if output:
-                            out('arch', 'I', f'Done: {rel_name}', uid)
+                            s_print('arch', 'I', f'Done: {rel_name}', uid)
                         success = True
                     except Exception as exc:
-                        out('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid)
+                        s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid)
+                        summ['failures'].append(proj_fld)
+                        return utils.update_summ(summ, 1)
                 else:
                     try:
                         zip_archive.write(f'{elem_name}', arcname=f'{rel_name}')
@@ -248,16 +262,20 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started):
                         else:
                             file_count += 1
                         if output:
-                            out('arch', 'I', f'Done: {rel_name}', uid)
+                            s_print('arch', 'I', f'Done: {rel_name}', uid)
                         success = True
                     except Exception as exc:
-                        out('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid)
+                        s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid)
+                        summ['failures'].append(proj_fld)
+                        return utils.update_summ(summ, 1)
         if success:
-            echo('------------')
-            out('arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}', uid)
-            out('arch', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip', uid)
+            s_print('arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}', uid)
+            s_print('arch', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip', uid)
+            return utils.update_summ(summ, 0)
         else:
-            out('arch', 'W', f'Incomplete archive: {dst_path}.zip', uid)
+            s_print('arch', 'W', f'Incomplete archive: {dst_path}.zip', uid)
+            summ['failures'].append(proj_fld)
+            return utils.update_summ(summ, 1)
 
 
 def duplicate(proj_fld, dst, rule, options, uid, started):
@@ -280,7 +298,7 @@ def duplicate(proj_fld, dst, rule, options, uid, started):
             if os.path.isdir(orig):
                 shutil.copytree(orig, full_dst, symlinks=True)
                 if exists(full_dst):
-                    out('copy', 'I', f'Done: {proj_fld}/{elem}', uid)
+                    s_print('copy', 'I', f'Done: {proj_fld}/{elem}', uid)
                     fld_count += 1
             else:
                 shutil.copy(orig, full_dst)
@@ -289,18 +307,24 @@ def duplicate(proj_fld, dst, rule, options, uid, started):
                 else:
                     file_count += 1
                 if exists(full_dst):
-                    out('copy', 'I', f'Done: {proj_fld}/{elem}', uid)
-        echo('------------')
-        # out('arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}', uid)
-        out('copy', 'I', f'✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/', uid)
+                    s_print('copy', 'I', f'Done: {proj_fld}/{elem}', uid)
+
+        s_print('copy', 'I', f'✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/', uid)
         dep_folder = exclusions["dep_folder"]
         if options['dependencies'] and exists(f'{proj_fld}/{dep_folder}'):
+            # TODO: optimize the logic here
+            # Try...Except
             start_dep_folder = time.time()
-            out('copy', 'I', f'Processing {dep_folder}...', uid)
+            s_print('copy', 'I', f'Processing {dep_folder}...', uid)
             shutil.copytree(f'{proj_fld}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
-            out('copy', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/', uid)
+            s_print('copy', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/', uid)
+            return utils.update_summ(summ, 0)
+        else:
+            return utils.update_summ(summ, 0)
     except Exception as exc:
-        out('copy', 'E', f'during the duplication {exc}', uid)
+        s_print('copy', 'E', f'during the duplication {exc}', uid)
+        summ['failures'].append(proj_fld)
+        return utils.update_summ(summ, 1)
 
 
 @click.command()
@@ -332,10 +356,13 @@ def duplicate(proj_fld, dst, rule, options, uid, started):
               is_flag=True)
 def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, archive):
     """Dev projects backups made easy"""
-    start_time = time.time()
+
+    #####################
+    # Variables declaration
+
+    exec_time = time.time()
     curr_fld = None
     missing_value = False
-    show_count = True
     backup_jobs = []
     options = {
         'dependencies': dependencies,
@@ -343,6 +370,10 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
         'nogit': nogit,
         'keephidden': keephidden,
     }
+    global summ
+
+    #####################
+    # Options validation
 
     # Extended validation for the options that have a Click.path() type
     for opt in (('path', path), ('output', output)):
@@ -364,7 +395,19 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
         settings = json.load(read_settings)
     uid = utils.suid()
 
-    def get_batch(**kwargs):
+    if batch and not output:
+        u_input = s_print('prep', 'W', 'You are about to backup your projects in the same folder. Continue (Y/N)? ',
+                          uid,
+                          input=True
+                          )
+        if u_input == 'N' or u_input == 'n':
+            s_print('prep', 'I', 'Exiting shlerp', uid)
+            exit(0)
+
+    #####################
+    # Main logic
+
+    def get_jobs(**kwargs):
         batch_list = []
         if batch:
             batch_list = [f'{curr_fld}/{f}' for f in os.listdir(curr_fld)]
@@ -378,7 +421,7 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
                     elem_rule = kwargs['rule']
                 else:
                     if not batch_elem.startswith('.'):
-                        out('prep', 'I', f'Processing {batch_elem}', uid)
+                        s_print('scan', 'I', f'Scanning {batch_elem}', uid)
                         elem_rule = auto_detect(batch_elem, settings, uid)
                 if elem_rule:
                     backup_jobs.append({
@@ -386,25 +429,25 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
                         'rule': elem_rule
                     })
                 else:
-                    out('scan', 'W', f'The folder {batch_elem} won\'t be processed as automatic rule detection failed', uid)
+                    s_print('scan', 'W',
+                            f'The folder {batch_elem} won\'t be processed as automatic rule detection failed',
+                            uid)
+                    summ.update(utils.update_summ(summ, 1))
+                    summ['ad_failures'].append(batch_elem)
+                    summ['total'] += 1
+        echo('------------')
 
     if not rule:
-        get_batch()
-        # rule_detected = auto_detect(curr_fld, settings, uid)
-        # if rule_detected:
-        #     rule = rule_detected
-        #     out('scan', 'I', f'Matching rule: {rule["name"]}', uid)
-        # else:
-        #     out('prep', 'E', 'Please select a rule to apply with --rule', uid)
-        #     exit(0)
+        get_jobs()
     else:
+        # If a --rule has been provided by the user, check if it is valid
         with open(f'{os.getcwd()}/rules.json', 'r') as read_file:
             rules = json.load(read_file)
             match = False
             for stored_rule in rules:
                 if stored_rule['name'].lower() == str(rule).lower():
                     if batch:
-                        get_batch(rule=stored_rule)
+                        get_jobs(rule=stored_rule)
                     else:
                         backup_jobs.append({
                             'proj_fld': curr_fld,
@@ -412,7 +455,7 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
                         })
                     match = True
             if not match:
-                out('scan', 'E', 'Rule name not found', uid)
+                s_print('scan', 'E', 'Rule name not found', uid)
                 exit(0)
 
     # At this point we should have a list containing at least one project to process
@@ -429,16 +472,45 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
 
     # At this point we should have the dst incorporated into the backup_job list
 
-    if len(backup_jobs) == 1:
-        show_count = False
-
+    summ['total'] += len(backup_jobs)
     for backup in backup_jobs:
+        start_time = time.time()
+        # payload = {
+        #     'source': backup['proj_fld'], 'dest': backup['dst'],
+        #     'rule': backup['rule'], 'options': options,
+        #     'uid': uid, 'start_time': start_time,
+        #     'summ': summ
+        # }
+        if batch:
+            s_print('arch' if archive else 'copy', 'I', f'Processing: {backup["proj_fld"]}', uid)
         if archive:
             # If --archive is provided to the script, we use make_archive()
-            make_archive(backup['proj_fld'], backup['dst'], backup['rule'], options, uid, start_time)
+            summ = make_archive(
+                backup['proj_fld'], backup['dst'],
+                backup['rule'], options,
+                uid, start_time)
+            # summ = make_archive(payload)
+
         else:
             # Else if we don't want an archive we will do a copy of the project instead
-            duplicate(backup['proj_fld'], backup['dst'], backup['rule'], options, uid, start_time)
+            summ = duplicate(
+                backup['proj_fld'], backup['dst'],
+                backup['rule'], options,
+                uid, start_time)
+            # summ = duplicate(payload)
+
+        if batch:
+            echo('------------')
+            if summ['done'] + summ['failed'] == summ['total']:
+                summary = f'Successful: {summ["done"]}, - ' \
+                          f'Failed: {summ["failed"]}, - ' \
+                          f'Total runtime: {"%.2f" % (time.time() - exec_time)}s'
+                operation = 'arch' if archive else 'copy'
+                s_print(operation, 'I', summary, uid)
+                if summ['failed'] > 0 and len(summ['failures']) > 0:
+                    s_print(operation, 'W', f'Operation failures: {summ["failures"]}', uid)
+                if len(summ['ad_failures']) > 0:
+                    s_print(operation, 'W', f'Detection failures: {summ["ad_failures"]}', uid)
 
 
 if __name__ == '__main__':

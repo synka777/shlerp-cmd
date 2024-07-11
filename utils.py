@@ -12,26 +12,37 @@ import json
 
 # Common
 
-def out(operation, lvl, message, *args):
-    """Standardizes the output format
+def s_print(operation, lvl, message, *args, **kwargs):
+    """Standardizes the string format
     :param operation, short string that indicates to the user the step we are going through
     :param lvl, letter that indicates if the displayed message is a Info, Warning or Error
     :param message, the message we want to print
     :param *args, (optional) it's only expected to receive a string representing an uid.
+    :return: The user input if input is set to True
     """
     uid = None
+    u_input = False
     if len(args) > 0:
         uid = args[0]
-    output = f"[{(f'{uid}:' if uid else '')}{get_dt()}:{operation}][{lvl}] {message}"
+    string = f"[{(f'{uid}:' if uid else '')}{get_dt()}:{operation}][{lvl}] {message}"
+
+    if len(kwargs) > 0 and kwargs['input']:
+        u_input = True
     if lvl == 'I':
-        echo(output)
+        if not u_input:
+            echo(string)
+        else:
+            return input(string)
     else:
         color = None
         if lvl == 'E':
             color = 'red'
         if lvl == 'W':
             color = 'bright_yellow'
-        echo(click.style(output, fg=color))
+        if not u_input:
+            echo(click.style(string, fg=color))
+        else:
+            return input(click.style(string, fg=color))
 
 
 def get_dt():
@@ -57,6 +68,15 @@ def suid():
 
 
 # Shlerp script
+
+
+def update_summ(summ, status):
+    if status == 0:
+        summ['done'] += 1
+    elif status == 1:
+        summ['failed'] += 1
+    return summ
+
 
 def iglob_hidden(*args, **kwargs):
     """A glob.iglob that include dot files and hidden files"""
@@ -150,7 +170,6 @@ def elect(leads):
 
 def crawl_for_weight(proj_fld, leads):
     """Crawl the project to find files matching the extensions we provide to this function
-    :param uid: identifier representing the current program run
     :param proj_fld: text, the folder we want to process
     :param leads: object list containing languages names, extensions to crawl and weights
     :return: an updated list with some more weight (hopefully)
