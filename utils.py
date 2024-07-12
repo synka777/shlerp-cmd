@@ -22,12 +22,15 @@ def s_print(operation, lvl, message, *args, **kwargs):
     """
     uid = None
     u_input = False
+    count = ''
     if len(args) > 0:
         uid = args[0]
-    string = f"[{(f'{uid}:' if uid else '')}{get_dt()}:{operation}][{lvl}] {message}"
-
-    if len(kwargs) > 0 and kwargs['input']:
-        u_input = True
+    for kwarg, val in kwargs.items():
+        if 'cnt' in kwarg and val != '':
+            count = f'[{kwargs["cnt"]}]'
+        if 'input' in kwarg:
+            u_input = True
+    string = f"[{(f'{uid}:' if uid else '')}{get_dt()}:{operation}]{count}[{lvl}] {message}"
     if lvl == 'I':
         if not u_input:
             echo(string)

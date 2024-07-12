@@ -2,7 +2,7 @@ import json
 import os
 from os import environ
 from os.path import exists
-from utils import out
+from utils import s_print
 import sys
 import subprocess
 
