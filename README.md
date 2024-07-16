@@ -52,13 +52,14 @@ shlerp -ng -a / shlerp --nogit --archive
 
 
 ## 🛠 Full option list
-| Option  |                                                                                                |
-| ------------ |------------------------------------------------------------------------------------------------|
-| -p, --path PATH  | The path of the project we want to backup.                                                     |
-| -o, --output PATH  | The location where we want to store the backup                                                 |
-| -r, --rule TEXT  | Manually specify a rule name if you want to skip the language detection process                |
-| -d, --dependencies  | Includes the folders marked as dependency folders in the duplication. Only works when using -a |
-| -ne, --noexcl  | Disables the exclusion system inherent to each rule                                            |
-| -ng, --nogit  | Excludes git data from the backup                                                              |
-| -kh, --keephidden  | Excludes hidden files and folders from the backup but keeps git data                           |
-| -a, --archive | Archives the project folder instead of making a copy of it                                     |
+| Option             |                                                                                                                                                                                     |
+|--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| -p, --path PATH    | The path of the project we want to backup.                                                                                                                                          |
+| -o, --output PATH  | The location where we want to store the backup                                                                                                                                      |
+| -r, --rule TEXT    | Manually specify a rule name if you want to skip the language detection process                                                                                                     |
+| -d, --dependencies | Includes the folders marked as dependency folders in the duplication. Only works when using -a                                                                                      |
+| -ne, --noexcl      | Disables the exclusion system inherent to each rule                                                                                                                                 |
+| -ng, --nogit       | Excludes git data from the backup                                                                                                                                                   |
+| -kh, --keephidden  | Excludes hidden files and folders from the backup but keeps git data                                                                                                                |
+| -b, --batch        | This option will consider all the sub-folders from the cwd as repositories and process it one by one. This is especially useful to backup all your projects on an another location. |
+| -a, --archive      | Archives the project folder instead of making a copy of it                                                                                                                          |

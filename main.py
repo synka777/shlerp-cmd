@@ -14,7 +14,7 @@ from click import echo
 from utils import s_print
 import json
 
-summ = {
+res_state = {
     'total': 0,
     'done': 0,
     'failed': 0,
@@ -172,11 +172,12 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
     :param options: dictionary/object containing exclusion options
     :param uid: text representing a short uid
     :param started: number representing the time when the script has been executed
+    :param count: string that represents nothing or the current count out of a total of backups to process
     """
     with ZipFile(f'{dst_path}.zip', 'w', ZIP_DEFLATED, compresslevel=9) as zip_archive:
         fld_count = file_count = symlink_count = 0
         success = False
-        if summ['total'] == 1:
+        if res_state['total'] == 1:
             count = ''
         for elem_name in utils.iglob_hidden(proj_fld + '/**', recursive=True):
             rel_name = elem_name.split(f'{proj_fld}/')[1]
@@ -253,8 +254,8 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
                         success = True
                     except Exception as exc:
                         s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
-                        summ['failures'].append(proj_fld)
-                        return utils.update_summ(summ, 1)
+                        res_state['failures'].append(proj_fld)
+                        return utils.update_res_state(res_state, 1)
                 else:
                     try:
                         zip_archive.write(f'{elem_name}', arcname=f'{rel_name}')
@@ -267,16 +268,16 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
                         success = True
                     except Exception as exc:
                         s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
-                        summ['failures'].append(proj_fld)
-                        return utils.update_summ(summ, 1)
+                        res_state['failures'].append(proj_fld)
+                        return utils.update_res_state(res_state, 1)
         if success:
             s_print('arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}', uid, cnt=count)
             s_print('arch', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip', uid, cnt=count)
-            return utils.update_summ(summ, 0)
+            return utils.update_res_state(res_state, 0)
         else:
             s_print('arch', 'W', f'Incomplete archive: {dst_path}.zip', uid, cnt=count)
-            summ['failures'].append(proj_fld)
-            return utils.update_summ(summ, 1)
+            res_state['failures'].append(proj_fld)
+            return utils.update_res_state(res_state, 1)
 
 
 def duplicate(proj_fld, dst, rule, options, uid, started, count):
@@ -287,12 +288,13 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
     :param options: dictionary/object containing exclusion options
     :param uid: text representing a short uid,
     :param started: number representing the time when the script has been executed
+    :param count: string that represents nothing or the current count out of a total of backups to process
     """
     try:
         fld_count = file_count = symlink_count = 0
         exclusions = rule['actions']['exclude']
         elem_list = utils.get_files(proj_fld, exclusions, options)
-        if summ['total'] == 1:
+        if res_state['total'] == 1:
             count = ''
         os.mkdir(dst)
         for elem in elem_list:
@@ -321,13 +323,13 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
             s_print('copy', 'I', f'Processing {dep_folder}...', uid, cnt=count)
             shutil.copytree(f'{proj_fld}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
             s_print('copy', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/', uid, cnt=count)
-            return utils.update_summ(summ, 0)
+            return utils.update_res_state(res_state, 0)
         else:
-            return utils.update_summ(summ, 0)
+            return utils.update_res_state(res_state, 0)
     except Exception as exc:
         s_print('copy', 'E', f'during the duplication {exc}', uid, cnt=count)
-        summ['failures'].append(proj_fld)
-        return utils.update_summ(summ, 1)
+        res_state['failures'].append(proj_fld)
+        return utils.update_res_state(res_state, 1)
 
 
 @click.command()
@@ -350,9 +352,8 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
               help='Excludes hidden files and folders from the backup but keeps git data',
               is_flag=True)
 @click.option('-b', '--batch', default=False,
-              help='This option is an alternative to -p.'
-                   'It will consider all the subfolder from the cwd as repositories and process it one by one.'
-                   'This is especially useful when you want to backup all your projects on an external location.',
+              help='This option will consider all the sub-folders from the cwd as repositories and process it one by one'
+                   'This is especially useful to backup all your projects on an another location.',
               is_flag=True)
 @click.option('-a', '--archive', default=False,
               help='Archives the project folder instead of making a copy of it',
@@ -373,7 +374,7 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
         'nogit': nogit,
         'keephidden': keephidden,
     }
-    global summ
+    global res_state
 
     #####################
     # Options validation
@@ -435,9 +436,9 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
                     s_print('scan', 'W',
                             f'The folder {batch_elem} won\'t be processed as automatic rule detection failed',
                             uid)
-                    summ.update(utils.update_summ(summ, 1))
-                    summ['ad_failures'].append(batch_elem)
-                    summ['total'] += 1
+                    res_state.update(utils.update_res_state(res_state, 1))
+                    res_state['ad_failures'].append(batch_elem)
+                    res_state['total'] += 1
         echo('------------')
 
     if not rule:
@@ -475,51 +476,51 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
 
     # At this point we should have the dst incorporated into the backup_job list
 
-    summ['total'] += len(backup_sources)
+    res_state['total'] += len(backup_sources)
     for backup in backup_sources:
         start_time = time.time()
-        show_summ = [True if summ['total'] > 1 else False]
+        show_res_state = [True if res_state['total'] > 1 else False]
         count = ''
-        if show_summ:
-            count = f'{summ["done"] + summ["failed"]}/{summ["total"]}'
+        if show_res_state:
+            count = f'{res_state["done"] + res_state["failed"]}/{res_state["total"]}'
         # payload = {
         #     'source': backup['proj_fld'], 'dest': backup['dst'],
         #     'rule': backup['rule'], 'options': options,
         #     'uid': uid, 'start_time': start_time,
-        #     'summ': summ
+        #     'res_state': res_state
         # }
         if batch:
             s_print('arch' if archive else 'copy', 'I', f'Processing: {backup["proj_fld"]}', uid, cnt=count)
         if archive:
             # If --archive is provided to the script, we use make_archive()
-            summ = make_archive(
+            res_state = make_archive(
                 backup['proj_fld'], backup['dst'],
                 backup['rule'], options,
                 uid, start_time, count
             )
-            # summ = make_archive(payload)
+            # res_state = make_archive(payload)
 
         else:
             # Else if we don't want an archive we will do a copy of the project instead
-            summ = duplicate(
+            res_state = duplicate(
                 backup['proj_fld'], backup['dst'],
                 backup['rule'], options,
                 uid, start_time, count
             )
-            # summ = duplicate(payload)
+            # res_state = duplicate(payload)
 
         if batch:
             echo('------------')
-            if summ['done'] + summ['failed'] == summ['total']:
-                summary = f'Successful: {summ["done"]}, - ' \
-                          f'Failed: {summ["failed"]}, - ' \
+            if res_state['done'] + res_state['failed'] == res_state['total']:
+                res_stateary = f'Successful: {res_state["done"]}, - ' \
+                          f'Failed: {res_state["failed"]}, - ' \
                           f'Total runtime: {"%.2f" % (time.time() - exec_time)}s'
                 operation = 'arch' if archive else 'copy'
-                s_print(operation, 'I', summary, uid)
-                if summ['failed'] > 0 and len(summ['failures']) > 0:
-                    s_print(operation, 'W', f'Operation failures: {summ["failures"]}', uid)
-                if len(summ['ad_failures']) > 0:
-                    s_print(operation, 'W', f'Detection failures: {summ["ad_failures"]}', uid)
+                s_print(operation, 'I', res_stateary, uid)
+                if res_state['failed'] > 0 and len(res_state['failures']) > 0:
+                    s_print(operation, 'W', f'Operation failures: {res_state["failures"]}', uid)
+                if len(res_state['ad_failures']) > 0:
+                    s_print(operation, 'W', f'Detection failures: {res_state["ad_failures"]}', uid)
 
 
 if __name__ == '__main__':

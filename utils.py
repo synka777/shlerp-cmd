@@ -73,12 +73,12 @@ def suid():
 # Shlerp script
 
 
-def update_summ(summ, status):
+def update_res_state(res_state, status):
     if status == 0:
-        summ['done'] += 1
+        res_state['done'] += 1
     elif status == 1:
-        summ['failed'] += 1
-    return summ
+        res_state['failed'] += 1
+    return res_state
 
 
 def iglob_hidden(*args, **kwargs):
