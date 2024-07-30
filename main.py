@@ -14,6 +14,9 @@ from click import echo
 from utils import s_print
 import json
 
+
+# Global variables
+
 res_state = {
     'total': 0,
     'done': 0,
@@ -22,8 +25,14 @@ res_state = {
     'ad_failures': []
 }
 
+with open(f'{os.getcwd()}/settings.json', 'r') as read_settings:
+    settings = json.load(read_settings)
 
-def auto_detect(proj_fld, settings, uid):
+
+# Main logic & functions
+
+
+def auto_detect(proj_fld, uid):
     leads = []
     tried_history = False
     tried_all = False
@@ -332,7 +341,7 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
         return utils.update_res_state(res_state, 1)
 
 
-@click.command()
+@click.command(epilog=f'shlerp v{settings["proj_ver"]} - More details: https://github.com/synchronic777/shlerp-cli')
 @click.option('-p', '--path', type=click.Path(),
               help='The path of the project we want to backup.')
 @click.option('-o', '--output', type=click.Path(),
@@ -395,8 +404,6 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
     home = os.path.expanduser("~")
     os.chdir(f'{home}/.local/bin/shlerp/')
 
-    with open(f'{os.getcwd()}/settings.json', 'r') as read_settings:
-        settings = json.load(read_settings)
     uid = utils.suid()
 
     if batch and not output:
@@ -426,7 +433,7 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
                 else:
                     if not batch_elem.startswith('.'):
                         s_print('scan', 'I', f'Scanning {batch_elem}', uid)
-                        elem_rule = auto_detect(batch_elem, settings, uid)
+                        elem_rule = auto_detect(batch_elem, uid)
                 if elem_rule:
                     backup_sources.append({
                         'proj_fld': batch_elem,

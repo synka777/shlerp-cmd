@@ -8,9 +8,61 @@ from click import echo
 import click
 import glob
 import json
+# import logging
 
 
 # Common
+
+def iterate_log_name(log_name):
+    name_chunk = log_name.split('.')[0]
+    ext_chunk = log_name.split('.')[1]
+    split_attempt = name_chunk.split('-')
+    base_name = split_attempt[0]
+
+    if len(split_attempt) > 1:
+        integer = int(split_attempt[1])
+        integer += 1
+    else:
+        integer = 1
+    return f'{base_name}-{integer}.{ext_chunk}'
+
+
+def log(msg, log_type='exec'):
+    log_fld = f'{os.getcwd()}/logs'
+    filename = f'{log_type}.log'
+    max_size = 50000
+    # mono_log = False
+
+    if not exists(log_fld):
+        os.makedirs(log_fld)
+
+    #####################
+    # Multiple logs
+
+    # Determine which log file is the latest according to its date and type
+    log_files = [
+        filename for filename in os.listdir(log_fld)
+        if log_type in filename
+    ]
+
+    if len(log_files) > 1:
+        c_timestamps = [(file, os.path.getctime(f'{log_fld}/{file}')) for file in log_files]
+        log_file = sorted(c_timestamps, reverse=True, key=lambda x: x[1])[0][0]  # sort by creation time
+    elif len(log_files) == 1:
+        log_file = log_files[0]
+    else:
+        # If no log file found, use the filename template to create a new one afterwards
+        log_file = filename
+
+    # Then check the size of this log file
+    if exists(f'{log_fld}/{log_file}'):
+        log_size = os.path.getsize(f'{log_fld}/{log_file}')
+        if log_size >= max_size:
+            log_file = iterate_log_name(log_file)
+    # At this point if no log file existed before we'll have the name of a new log file to create
+    with open(f'{log_fld}/{log_file}', 'a') as write_log:
+        write_log.write(f'{msg}\n')
+
 
 def s_print(operation, lvl, message, *args, **kwargs):
     """Standardizes the string format
@@ -31,6 +83,8 @@ def s_print(operation, lvl, message, *args, **kwargs):
         if 'input' in kwarg:
             u_input = True
     string = f"[{(f'{uid}:' if uid else '')}{get_dt()}:{operation}]{count}[{lvl}] {message}"
+    log(string)
+
     if lvl == 'I':
         if not u_input:
             echo(string)
