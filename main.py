@@ -446,7 +446,6 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
                     res_state.update(utils.update_res_state(res_state, 1))
                     res_state['ad_failures'].append(batch_elem)
                     res_state['total'] += 1
-        echo('------------')
 
     if not rule:
         get_sources()
@@ -517,7 +516,6 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
             # res_state = duplicate(payload)
 
         if batch:
-            echo('------------')
             if res_state['done'] + res_state['failed'] == res_state['total']:
                 res_stateary = f'Successful: {res_state["done"]}, - ' \
                           f'Failed: {res_state["failed"]}, - ' \

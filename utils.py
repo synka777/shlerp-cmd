@@ -8,6 +8,8 @@ from click import echo
 import click
 import glob
 import json
+import shutil
+import re
 # import logging
 
 
@@ -31,36 +33,92 @@ def log(msg, log_type='exec'):
     log_fld = f'{os.getcwd()}/logs'
     filename = f'{log_type}.log'
     max_size = 50000
-    # mono_log = False
+    max_age = 30
+    auto_prune = True
+    log_file = None
 
     if not exists(log_fld):
         os.makedirs(log_fld)
 
-    #####################
-    # Multiple logs
-
-    # Determine which log file is the latest according to its date and type
     log_files = [
         filename for filename in os.listdir(log_fld)
         if log_type in filename
     ]
 
-    if len(log_files) > 1:
-        c_timestamps = [(file, os.path.getctime(f'{log_fld}/{file}')) for file in log_files]
-        log_file = sorted(c_timestamps, reverse=True, key=lambda x: x[1])[0][0]  # sort by creation time
-    elif len(log_files) == 1:
-        log_file = log_files[0]
-    else:
-        # If no log file found, use the filename template to create a new one afterwards
-        log_file = filename
+    if auto_prune:
+        #####################
+        # One log by log type
 
-    # Then check the size of this log file
-    if exists(f'{log_fld}/{log_file}'):
-        log_size = os.path.getsize(f'{log_fld}/{log_file}')
-        if log_size >= max_size:
-            log_file = iterate_log_name(log_file)
-    # At this point if no log file existed before we'll have the name of a new log file to create
-    with open(f'{log_fld}/{log_file}', 'a') as write_log:
+        if len(log_files) == 0:
+            log_file = f'{log_type}.log'
+            abs_log_file = f'{log_fld}/{log_file}'
+            with open(abs_log_file, 'w+'):
+                pass
+
+        if len(log_files) > 1:
+            # If more than one log file by log type, place the old logs into an archive sub-folder.
+            # Can happen if the program has been switched back to the default auto_prune mode.
+            old_logs_fld = f'{log_fld}/old_logs'
+            if not exists(old_logs_fld):
+                os.mkdir(old_logs_fld)
+
+            # Then move all the logs to the old_logs folder
+            for log_file in log_files:
+                shutil.move(f'{log_fld}/{log_file}', f'{log_fld}/old_logs/{log_file}')
+
+            log_file = f'{log_fld}{log_type}.log'
+
+        elif len(log_files) == 1:
+            log_file = log_files[0]
+            # If only one log file, open the file in rw mode and prune the jobs that are too old.
+            with open(f'{log_fld}/{log_files[0]}', 'r') as prune_file:
+                now = datetime.now()
+                valid_entries = []
+                prune = False
+                for index, line in enumerate(prune_file.readlines()):
+                    str_timestamp = re.split(r"\[*:(.*?):[a-z]+\]", line)[1]
+
+                    day = str_timestamp[0:2]
+                    month = str_timestamp[2:4]
+                    year = str_timestamp[4:6]
+                    timestamp = datetime.strptime(f'{day}{month}{year}', '%d%m%y')
+
+                    days = (now - timestamp).days
+                    if days < max_age:
+                        if index == 1:  # If the first entry is valid, then we don't scan the rest of the file
+                            break
+                        # Else if the timestamp is valid, add the line to the content that we'll write into the log
+                        valid_entries.append(line)
+                    else:
+                        prune = True
+
+                # Then, overwrite the log file with the entries that are recent enough to be kept in the logs.
+                if prune:
+                    with open(f'{log_fld}/{log_files[0]}', 'w') as update_file:
+                        update_file.truncate(0)
+                        for entry in valid_entries:
+                            update_file.write(entry)
+    else:
+        #####################
+        # Multiple logs
+
+        # Determine which log file is the latest according to its date and type
+        if len(log_files) > 1:
+            c_timestamps = [(file, os.path.getctime(f'{log_fld}/{file}')) for file in log_files]
+            log_file = sorted(c_timestamps, reverse=True, key=lambda x: x[1])[0][0]  # sort by creation time
+        elif len(log_files) == 1:
+            log_file = log_files[0]
+        else:
+            # If no log file found, use the filename template to create a new one afterwards
+            log_file = filename
+
+        # Then check the size of this log file
+        if exists(f'{log_fld}/{log_file}'):
+            log_size = os.path.getsize(f'{log_fld}/{log_file}')
+            if log_size >= max_size:
+                log_file = iterate_log_name(log_file)
+
+    with open(f'{log_fld}/{log_file}', 'a+') as write_log:
         write_log.write(f'{msg}\n')
 
 
