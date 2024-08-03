@@ -76,18 +76,17 @@ def log(msg, log_type='exec'):
                 valid_entries = []
                 prune = False
                 for index, line in enumerate(prune_file.readlines()):
-                    str_timestamp = re.split(r"\[*:(.*?):[a-z]+\]", line)[1]
+                    str_date = re.split(r"\[*:(.*?):[a-z]+\]", line)[1]
+                    year = str_date[0:4]
+                    month = str_date[4:6]
+                    day = str_date[6:8]
+                    date = datetime.strptime(f'{year}{month}{day}', '%Y%m%d')
 
-                    day = str_timestamp[0:2]
-                    month = str_timestamp[2:4]
-                    year = str_timestamp[4:6]
-                    timestamp = datetime.strptime(f'{day}{month}{year}', '%d%m%y')
-
-                    days = (now - timestamp).days
+                    days = (now - date).days
                     if days < max_age:
                         if index == 1:  # If the first entry is valid, then we don't scan the rest of the file
                             break
-                        # Else if the timestamp is valid, add the line to the content that we'll write into the log
+                        # Else if the date is valid, add the line to the content that we'll write into the log
                         valid_entries.append(line)
                     else:
                         prune = True
@@ -104,8 +103,8 @@ def log(msg, log_type='exec'):
 
         # Determine which log file is the latest according to its date and type
         if len(log_files) > 1:
-            c_timestamps = [(file, os.path.getctime(f'{log_fld}/{file}')) for file in log_files]
-            log_file = sorted(c_timestamps, reverse=True, key=lambda x: x[1])[0][0]  # sort by creation time
+            c_dates = [(file, os.path.getctime(f'{log_fld}/{file}')) for file in log_files]
+            log_file = sorted(c_dates, reverse=True, key=lambda x: x[1])[0][0]  # sort by creation time
         elif len(log_files) == 1:
             log_file = log_files[0]
         else:
@@ -162,9 +161,14 @@ def s_print(operation, lvl, message, *args, **kwargs):
 
 def get_dt():
     """
-    :return: A timestamp in string format
+    :return: A datetime in string format
     """
-    return str(datetime.now().strftime('%d%m%y%H%M%S'))
+    return str(
+        datetime.now()
+        .isoformat('#', 'seconds')
+        .replace('-', '')
+        .replace(':', '')
+    )
 
 
 def suid():
