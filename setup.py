@@ -3,6 +3,7 @@ import os
 from os import environ
 from os.path import join, exists
 import utils
+from settings import get_settings
 import platform
 import shutil
 import venv
@@ -11,13 +12,13 @@ import venv
 def setup():
     project_files = (
         'main.py',
+        'utils.py',
+        'settings.py',
         'rules.json',
         'settings.json',
-        'utils.py',
         'function.template'
     )
-    with open(f'{os.getcwd()}/settings.json', 'r') as read_settings:
-        settings = json.load(read_settings)
+    settings = get_settings()
     home = os.path.expanduser("~")
     abs_setup_path = f'{home}/{settings["rel_setup_path"]}'
     setup_folder = f'{abs_setup_path}/shlerp/'

@@ -3,6 +3,7 @@ Copyright (c) 2023 Mathieu BARBE-GAYET
 All Rights Reserved.
 Released under the GNU Affero General Public License v3.0
 """
+from settings import get_settings
 import utils
 import os
 import shutil
@@ -24,10 +25,6 @@ res_state = {
     'failures': [],
     'ad_failures': []
 }
-
-with open(f'{os.getcwd()}/settings.json', 'r') as read_settings:
-    settings = json.load(read_settings)
-
 
 # Main logic & functions
 
@@ -160,7 +157,7 @@ def auto_detect(proj_fld, uid):
             if utils.weight_found(leads):
                 # Successful exit point
                 # Check if the history in the tmp file can be updated before breaking out of the loop
-                if not utils.history_updated(leads[0], settings, tmp_file):
+                if not utils.history_updated(leads[0], tmp_file):
                     s_print('scan', 'I', 'A problem occurred when trying to write in tmp.json', uid)
                     break
                 else:
@@ -341,7 +338,7 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
         return utils.update_res_state(res_state, 1)
 
 
-@click.command(epilog=f'shlerp v{settings["proj_ver"]} - More details: https://github.com/synchronic777/shlerp-cli')
+@click.command(epilog=f'shlerp v{get_settings()["proj_ver"]} - More details: https://github.com/synchronic777/shlerp-cli')
 @click.option('-p', '--path', type=click.Path(),
               help='The path of the project we want to backup.')
 @click.option('-o', '--output', type=click.Path(),

@@ -1,3 +1,4 @@
+from settings import get_settings
 import os
 import random
 import subprocess
@@ -10,7 +11,6 @@ import glob
 import json
 import shutil
 import re
-# import logging
 
 
 # Common
@@ -29,12 +29,14 @@ def iterate_log_name(log_name):
     return f'{base_name}-{integer}.{ext_chunk}'
 
 
-def log(msg, log_type='exec'):
+def log(msg, log_type):
+    settings = get_settings()
+    max_size = settings['logging']['no_prune']['max_log_size']
+    max_age = settings['logging']['prune']['max_days']
+    prune = settings['logging']['prune']['enabled']
+
     log_fld = f'{os.getcwd()}/logs'
     filename = f'{log_type}.log'
-    max_size = 50000
-    max_age = 30
-    auto_prune = True
     log_file = None
 
     if not exists(log_fld):
@@ -45,7 +47,7 @@ def log(msg, log_type='exec'):
         if log_type in filename
     ]
 
-    if auto_prune:
+    if prune:
         #####################
         # One log by log type
 
@@ -76,7 +78,7 @@ def log(msg, log_type='exec'):
                 valid_entries = []
                 prune = False
                 for index, line in enumerate(prune_file.readlines()):
-                    str_date = re.split(r"\[*:(.*?):[a-z]+\]", line)[1]
+                    str_date = re.match(r"\[(.*?:)?(.*?):[a-z]+\]", line).group(2)
                     year = str_date[0:4]
                     month = str_date[4:6]
                     day = str_date[6:8]
@@ -122,7 +124,7 @@ def log(msg, log_type='exec'):
 
 
 def s_print(operation, lvl, message, *args, **kwargs):
-    """Standardizes the string format
+    """Standardizes the output format
     :param operation, short string that indicates to the user the step we are going through
     :param lvl, letter that indicates if the displayed message is a Info, Warning or Error
     :param message, the message we want to print
@@ -132,6 +134,7 @@ def s_print(operation, lvl, message, *args, **kwargs):
     uid = None
     u_input = False
     count = ''
+    log_type = 'exec'
     if len(args) > 0:
         uid = args[0]
     for kwarg, val in kwargs.items():
@@ -139,8 +142,10 @@ def s_print(operation, lvl, message, *args, **kwargs):
             count = f'[{kwargs["cnt"]}]'
         if 'input' in kwarg:
             u_input = True
+        if 'type' in kwarg:
+            log_type = val
     string = f"[{(f'{uid}:' if uid else '')}{get_dt()}:{operation}]{count}[{lvl}] {message}"
-    log(string)
+    log(string, log_type)
 
     if lvl == 'I':
         if not u_input:
@@ -300,12 +305,12 @@ def crawl_for_weight(proj_fld, leads):
     return leads
 
 
-def enforce_limit(tmp_file, settings):
+def enforce_limit(tmp_file):
     """Shortens the history if it is too long compared to history_limit
     :param tmp_file: Temporary file containing the history list
-    :param settings: Param representing
     :return:
     """
+    settings = get_settings()
     history = tmp_file['rules_history']
     history_limit = settings['rules']['history_limit']
     if len(history) > history_limit:
@@ -315,18 +320,17 @@ def enforce_limit(tmp_file, settings):
             write_tmp.write(json.dumps(tmp_file, indent=4))
 
 
-def history_updated(rule, settings, tmp_file):
+def history_updated(rule, tmp_file):
     """Updates the history with a new rule
     :param rule:  List of objects representing potential winners
-    :param settings: The settings of the project
     :param tmp_file:
     :return: A boolean depending on the outcome of this function
     """
     current_lang = rule['name']
     try:
-        enforce_limit(tmp_file, settings)
+        enforce_limit(tmp_file)
         history = tmp_file['rules_history']
-        history_limit = settings['rules']['history_limit']
+        history_limit = get_settings()['rules']['history_limit']
         # If the current language is in the history
         if current_lang in history:
             # But it's not the latest, get its position and remove it to add it back in first pos

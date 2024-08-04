@@ -3,13 +3,13 @@ import os
 from os import environ
 from os.path import exists
 from utils import s_print
+from settings import get_settings
 import sys
 import subprocess
 
 
 def uninstall():
-    with open(f'{os.getcwd()}/settings.json', 'r') as read_settings:
-        settings = json.load(read_settings)
+    settings = get_settings()
     home = os.path.expanduser("~")
     abs_setup_path = f'{home}/{settings["rel_setup_path"]}'
     setup_folder = f'{abs_setup_path}/shlerp/'
