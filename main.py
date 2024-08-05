@@ -3,8 +3,8 @@ Copyright (c) 2023 Mathieu BARBE-GAYET
 All Rights Reserved.
 Released under the GNU Affero General Public License v3.0
 """
-from settings import get_settings
-import utils
+from tools.settings import get_settings
+from tools import utils
 import os
 import shutil
 from os.path import exists
@@ -12,7 +12,7 @@ from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
 import time
 import click
 from click import echo
-from utils import s_print
+from tools.utils import s_print
 import json
 
 
@@ -36,7 +36,7 @@ def auto_detect(proj_fld, uid):
     while True:
         # Try...Except
         try:
-            with open(f'{os.getcwd()}/rules.json', 'r') as read_file:
+            with open(f'{os.getcwd()}/config/rules.json', 'r') as read_file:
                 rules = json.load(read_file)
         except FileNotFoundError:
             s_print('scan', 'E', 'rules.json not found', uid)
@@ -44,7 +44,7 @@ def auto_detect(proj_fld, uid):
         # If the rules history hasn't been checked yet, only keep the rules that are mentioned in the tmp file
         if not tried_history:
             try:
-                with open(f'{os.getcwd()}/tmp.json', 'r') as read_tmp:
+                with open(f'{os.getcwd()}/tmp/tmp.json', 'r') as read_tmp:
                     tmp_file = json.load(read_tmp)
                     rules_history = tmp_file['rules_history']
                     for rule in rules:
@@ -54,7 +54,10 @@ def auto_detect(proj_fld, uid):
             except (FileNotFoundError, ValueError):
                 s_print('scan', 'I', 'Temp file not found, will use the whole ruleset instead', uid)
                 tmp_file = {'rules_history': []}
-                with open(f'{os.getcwd()}/tmp.json', 'w') as write_tmp:
+                tmp_fld = f'{os.getcwd()}/tmp/'
+                if not exists(tmp_fld):
+                    os.mkdir(tmp_fld)
+                with open(f'{os.getcwd()}/tmp/tmp.json', 'w') as write_tmp:
                     write_tmp.write(json.dumps(tmp_file, indent=4))
                 tried_history = True
         else:

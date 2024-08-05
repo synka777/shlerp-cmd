@@ -1,9 +1,8 @@
-import json
 import os
 from os import environ
 from os.path import exists
-from utils import s_print
-from settings import get_settings
+from tools.utils import s_print
+from tools.settings import get_settings
 import sys
 import subprocess
 
@@ -25,7 +24,7 @@ def uninstall():
             double_check = True
             read_rc = read_rc.read()
             tmp_rc_path = f'{setup_folder}.rc_file'
-            source_line = f'source {setup_folder}function.template'
+            source_line = f'source {setup_folder}/tools/function.template'
             if source_line in read_rc:
                 cleaned_rc = read_rc.replace(source_line, '')
                 with open(tmp_rc_path, 'w') as write_tmp_rc:
@@ -44,9 +43,10 @@ def uninstall():
                     s_print('uninstall', 'E', f'[1/2] ERROR: Function still sourced in {rc_file}')
 
     # Step 2: Remove the installation folder
-    subprocess.Popen([
-        'rm', '-rf', f'{setup_folder}',
+    subprocess.call([
+        'sudo', 'rm', '-rf', f'{setup_folder}',
         '&&' f'{s_print("uninstall", "I", f"[2/2] OK: Uninstalled shlerp from {setup_folder}")}'
+        'wait'
     ])
     sys.exit(0)
 

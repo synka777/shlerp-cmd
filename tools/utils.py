@@ -1,4 +1,4 @@
-from settings import get_settings
+from tools.settings import get_settings
 import os
 import random
 import subprocess
@@ -315,7 +315,7 @@ def enforce_limit(tmp_file):
     history_limit = settings['rules']['history_limit']
     if len(history) > history_limit:
         history = history[:history_limit]
-        with open('tmp.json', 'w') as write_tmp:
+        with open('tmp/tmp.json', 'w') as write_tmp:
             tmp_file['rules_history'] = history
             write_tmp.write(json.dumps(tmp_file, indent=4))
 
@@ -338,7 +338,7 @@ def history_updated(rule, tmp_file):
                 current_pos = history.index(current_lang)
                 history.pop(current_pos)
                 history.insert(0, current_lang)
-                with open(f'{os.getcwd()}/tmp.json', 'w') as write_tmp:
+                with open(f'{os.getcwd()}/tmp/tmp.json', 'w') as write_tmp:
                     tmp_file['rules_history'] = history
                     write_tmp.write(json.dumps(tmp_file, indent=4))
                     return True
@@ -349,15 +349,15 @@ def history_updated(rule, tmp_file):
                 history.pop()
             history.insert(0, current_lang)
             tmp_file['rules_history'] = history
-            with open('tmp.json', 'w') as write_tmp:
+            with open('tmp/tmp.json', 'w') as write_tmp:
                 write_tmp.write(json.dumps(tmp_file, indent=4))
                 return True
     except (FileNotFoundError, ValueError):
-        with open(f'{os.getcwd()}/tmp.json', 'a') as write_tmp:
+        with open(f'{os.getcwd()}/tmp/tmp.json', 'a') as write_tmp:
             write_tmp.write(json.dumps({
                 "rules_history": [current_lang]
             }))
-            if exists(f'{os.getcwd()}/tmp.json'):
+            if exists(f'{os.getcwd()}/tmp/tmp.json'):
                 return True
     return False
 
