@@ -34,7 +34,6 @@ def auto_detect(proj_fld, uid):
     tried_history = False
     tried_all = False
     while True:
-        # Try...Except
         try:
             with open(f'{os.getcwd()}/config/rules.json', 'r') as read_file:
                 rules = json.load(read_file)
@@ -54,10 +53,10 @@ def auto_detect(proj_fld, uid):
             except (FileNotFoundError, ValueError):
                 s_print('scan', 'I', 'Temp file not found, will use the whole ruleset instead', uid)
                 tmp_file = {'rules_history': []}
-                tmp_fld = f'{os.getcwd()}/tmp/'
+                tmp_fld = f'{os.getcwd()}/tmp'
                 if not exists(tmp_fld):
                     os.mkdir(tmp_fld)
-                with open(f'{os.getcwd()}/tmp/tmp.json', 'w') as write_tmp:
+                with open(f'{tmp_fld}/tmp.json', 'w') as write_tmp:
                     write_tmp.write(json.dumps(tmp_file, indent=4))
                 tried_history = True
         else:

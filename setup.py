@@ -72,7 +72,7 @@ def setup():
                         write = False
                         s_print('setup', 'I', '[2/3] OK: Alias function already installed')
                 if write:
-                    write_rc.write(f'source {setup_folder}tools/function.template')
+                    write_rc.write(f'source {setup_folder}config/function.template')
                     s_print('setup', 'I', f'[2/3] OK: Alias added to {rc_file}')
 
         def check_deps(first_try):
@@ -81,6 +81,7 @@ def setup():
                 word = 'already'
             if req_installed(setup_folder):
                 s_print('setup', 'I', f'[3/3] OK: Virtual environment {word} installed')
+                s_print('setup', 'I', f'✅ Install complete! Please restart your terminal to use the shlerp command')
             else:
                 s_print('setup', 'E', 'ERROR: A problem happened during the requirements installation')
                 exit(0)

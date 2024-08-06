@@ -31,11 +31,11 @@ def iterate_log_name(log_name):
 
 def log(msg, log_type):
     settings = get_settings()
+    log_fld = f'{os.path.expanduser("~")}/{settings["rel_logs_path"]}'
     max_size = settings['logging']['no_prune']['max_log_size']
     max_age = settings['logging']['prune']['max_days']
     prune = settings['logging']['prune']['enabled']
 
-    log_fld = f'{os.getcwd()}/logs'
     filename = f'{log_type}.log'
     log_file = None
 
@@ -135,6 +135,10 @@ def s_print(operation, lvl, message, *args, **kwargs):
     u_input = False
     count = ''
     log_type = 'exec'
+    if operation == 'setup':
+        log_type = operation
+    if operation == 'uninstall':
+        log_type = operation
     if len(args) > 0:
         uid = args[0]
     for kwarg, val in kwargs.items():
@@ -142,8 +146,6 @@ def s_print(operation, lvl, message, *args, **kwargs):
             count = f'[{kwargs["cnt"]}]'
         if 'input' in kwarg:
             u_input = True
-        if 'type' in kwarg:
-            log_type = val
     string = f"[{(f'{uid}:' if uid else '')}{get_dt()}:{operation}]{count}[{lvl}] {message}"
     log(string, log_type)
 

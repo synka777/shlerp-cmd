@@ -1,6 +1,7 @@
 {
     "proj_ver": 1.4,
     "rel_setup_path": ".local/bin",
+    "rel_logs_path": ".local/logs",
     "logging": {
         "prune": {
             "enabled": true,
