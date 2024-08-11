@@ -1,11 +1,11 @@
 from tools.settings import get_settings
-import os
-import random
-import subprocess
 from uuid import uuid4
 from datetime import datetime
 from os.path import exists
 from click import echo
+import os
+import random
+import subprocess
 import click
 import glob
 import json
@@ -123,10 +123,10 @@ def log(msg, log_type):
         write_log.write(f'{msg}\n')
 
 
-def s_print(operation, lvl, message, *args, **kwargs):
+def s_print(step, lvl, message, *args, **kwargs):
     """Standardizes the output format
-    :param operation, short string that indicates to the user the step we are going through
-    :param lvl, letter that indicates if the displayed message is a Info, Warning or Error
+    :param step, short string that indicates to the user the step we are going through
+    :param lvl, letter that indicates if the displayed message is an Info, Warning or Error
     :param message, the message we want to print
     :param *args, (optional) it's only expected to receive a string representing an uid.
     :return: The user input if input is set to True
@@ -135,10 +135,10 @@ def s_print(operation, lvl, message, *args, **kwargs):
     u_input = False
     count = ''
     log_type = 'exec'
-    if operation == 'setup':
-        log_type = operation
-    if operation == 'uninstall':
-        log_type = operation
+    if step == 'setup':
+        log_type = step
+    if step == 'uninstall':
+        log_type = step
     if len(args) > 0:
         uid = args[0]
     for kwarg, val in kwargs.items():
@@ -146,7 +146,7 @@ def s_print(operation, lvl, message, *args, **kwargs):
             count = f'[{kwargs["cnt"]}]'
         if 'input' in kwarg:
             u_input = True
-    string = f"[{(f'{uid}:' if uid else '')}{get_dt()}:{operation}]{count}[{lvl}] {message}"
+    string = f"[{(f'{uid}:' if uid else '')}{get_dt()}:{step}]{count}[{lvl}] {message}"
     log(string, log_type)
 
     if lvl == 'I':
@@ -196,12 +196,12 @@ def suid():
 # Shlerp script
 
 
-def update_res_state(res_state, status):
+def update_state(state, status):
     if status == 0:
-        res_state['done'] += 1
+        state['done'] += 1
     elif status == 1:
-        res_state['failed'] += 1
-    return res_state
+        state['failed'] += 1
+    return state
 
 
 def iglob_hidden(*args, **kwargs):

@@ -9,9 +9,12 @@ from tools.settings import get_settings
 from tools.utils import s_print
 from tools import utils
 from os.path import exists
+from signal import signal
+from signal import SIGINT
 from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
 import threading
 import os
+import sys
 import shutil
 import time
 import json
@@ -19,7 +22,9 @@ import json
 
 # Global variables
 
-res_state = {
+state = {
+    'uid': '',
+    'step': '',
     'total': 0,
     'done': 0,
     'failed': 0,
@@ -34,6 +39,7 @@ def auto_detect(proj_fld, uid):
     leads = []
     tried_history = False
     tried_all = False
+    state['step'] = 'scan'
     while True:
         try:
             with open(f'{os.getcwd()}/config/rules.json', 'r') as read_file:
@@ -186,7 +192,8 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
     with ZipFile(f'{dst_path}.zip', 'w', ZIP_DEFLATED, compresslevel=9) as zip_archive:
         fld_count = file_count = symlink_count = 0
         success = False
-        if res_state['total'] == 1:
+        state['step'] = 'arch'
+        if state['total'] == 1:
             count = ''
         for elem_name in utils.iglob_hidden(proj_fld + '/**', recursive=True):
             rel_name = elem_name.split(f'{proj_fld}/')[1]
@@ -263,8 +270,8 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
                         success = True
                     except Exception as exc:
                         s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
-                        res_state['failures'].append(proj_fld)
-                        return utils.update_res_state(res_state, 1)
+                        state['failures'].append(proj_fld)
+                        return utils.update_state(state, 1)
                 else:
                     try:
                         zip_archive.write(f'{elem_name}', arcname=f'{rel_name}')
@@ -277,16 +284,16 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
                         success = True
                     except Exception as exc:
                         s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
-                        res_state['failures'].append(proj_fld)
-                        return utils.update_res_state(res_state, 1)
+                        state['failures'].append(proj_fld)
+                        return utils.update_state(state, 1)
         if success:
             s_print('arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}', uid, cnt=count)
             s_print('arch', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip', uid, cnt=count)
-            return utils.update_res_state(res_state, 0)
+            return utils.update_state(state, 0)
         else:
             s_print('arch', 'W', f'Incomplete archive: {dst_path}.zip', uid, cnt=count)
-            res_state['failures'].append(proj_fld)
-            return utils.update_res_state(res_state, 1)
+            state['failures'].append(proj_fld)
+            return utils.update_state(state, 1)
 
 
 def duplicate(proj_fld, dst, rule, options, uid, started, count):
@@ -300,10 +307,11 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
     :param count: string that represents nothing or the current count out of a total of backups to process
     """
     try:
+        state['step'] = 'copy'
         fld_count = file_count = symlink_count = 0
         exclusions = rule['actions']['exclude']
         elem_list = utils.get_files(proj_fld, exclusions, options)
-        if res_state['total'] == 1:
+        if state['total'] == 1:
             count = ''
         os.mkdir(dst)
         for elem in elem_list:
@@ -332,13 +340,13 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
             s_print('copy', 'I', f'Processing {dep_folder}...', uid, cnt=count)
             shutil.copytree(f'{proj_fld}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
             s_print('copy', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/', uid, cnt=count)
-            return utils.update_res_state(res_state, 0)
+            return utils.update_state(state, 0)
         else:
-            return utils.update_res_state(res_state, 0)
+            return utils.update_state(state, 0)
     except Exception as exc:
         s_print('copy', 'E', f'during the duplication {exc}', uid, cnt=count)
-        res_state['failures'].append(proj_fld)
-        return utils.update_res_state(res_state, 1)
+        state['failures'].append(proj_fld)
+        return utils.update_state(state, 1)
 
 
 @click.command(epilog=f'shlerp v{get_settings()["proj_ver"]} - More details: https://github.com/synchronic777/shlerp-cli')
@@ -383,7 +391,7 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
         'nogit': nogit,
         'keephidden': keephidden,
     }
-    global res_state
+    global state
 
     #####################
     # Options validation
@@ -405,7 +413,8 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
     os.chdir(f'{home}/.local/bin/shlerp/')
 
     uid = utils.suid()
-
+    state['uid'] = uid
+    state['step'] = 'prep'
     if batch and not output:
         u_input = s_print('prep', 'W', 'You are about to backup your projects in the same folder. Continue (Y/N)? ',
                           uid,
@@ -443,9 +452,9 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
                     s_print('scan', 'W',
                             f'The folder {batch_elem} won\'t be processed as automatic rule detection failed',
                             uid)
-                    res_state.update(utils.update_res_state(res_state, 1))
-                    res_state['ad_failures'].append(batch_elem)
-                    res_state['total'] += 1
+                    state.update(utils.update_state(state, 1))
+                    state['ad_failures'].append(batch_elem)
+                    state['total'] += 1
 
     if not rule:
         get_sources()
@@ -482,53 +491,59 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
 
     # At this point we should have the dst incorporated into the backup_job list
 
-    res_state['total'] += len(backup_sources)
+    state['total'] += len(backup_sources)
     for backup in backup_sources:
         start_time = time.time()
-        show_res_state = [True if res_state['total'] > 1 else False]
+        show_state = [True if state['total'] > 1 else False]
         count = ''
-        if show_res_state:
-            count = f'{res_state["done"] + res_state["failed"]}/{res_state["total"]}'
+        if show_state:
+            count = f'{state["done"] + state["failed"]}/{state["total"]}'
         # payload = {
         #     'source': backup['proj_fld'], 'dest': backup['dst'],
         #     'rule': backup['rule'], 'options': options,
         #     'uid': uid, 'start_time': start_time,
-        #     'res_state': res_state
+        #     'state': state
         # }
         if batch:
             s_print('arch' if archive else 'copy', 'I', f'Processing: {backup["proj_fld"]}', uid, cnt=count)
         if archive:
             # If --archive is provided to the script, we use make_archive()
-            res_state = make_archive(
+            state = make_archive(
                 backup['proj_fld'], backup['dst'],
                 backup['rule'], options,
                 uid, start_time, count
             )
-            # res_state = make_archive(payload)
+            # state = make_archive(payload)
 
         else:
             # Else if we don't want an archive we will do a copy of the project instead
-            res_state = duplicate(
+            state = duplicate(
                 backup['proj_fld'], backup['dst'],
                 backup['rule'], options,
                 uid, start_time, count
             )
-            # res_state = duplicate(payload)
+            # state = duplicate(payload)
 
         if batch:
-            if res_state['done'] + res_state['failed'] == res_state['total']:
-                res_stateary = f'Successful: {res_state["done"]}, - ' \
-                          f'Failed: {res_state["failed"]}, - ' \
+            if state['done'] + state['failed'] == state['total']:
+                summary = f'Successful: {state["done"]}, - ' \
+                          f'Failed: {state["failed"]}, - ' \
                           f'Total runtime: {"%.2f" % (time.time() - exec_time)}s'
-                operation = 'arch' if archive else 'copy'
-                s_print(operation, 'I', res_stateary, uid)
-                if res_state['failed'] > 0 and len(res_state['failures']) > 0:
-                    s_print(operation, 'W', f'Operation failures: {res_state["failures"]}', uid)
-                if len(res_state['ad_failures']) > 0:
-                    s_print(operation, 'W', f'Detection failures: {res_state["ad_failures"]}', uid)
+                step = 'arch' if archive else 'copy'
+                s_print(step, 'I', summary, uid)
+                if state['failed'] > 0 and len(state['failures']) > 0:
+                    s_print(step, 'W', f'step failures: {state["failures"]}', uid)
+                if len(state['ad_failures']) > 0:
+                    s_print(step, 'W', f'Detection failures: {state["ad_failures"]}', uid)
+
+
+def handle_sigint(signalnum, frame):
+    s_print(state['step'], 'E', f'SIGINT: Interrupted by user', state['uid'])
+    sys.exit()
 
 
 if __name__ == '__main__':
+    signal(SIGINT, handle_sigint)
     t = threading.Thread(target=main)
     t.start()
     t.join()
