@@ -3,16 +3,17 @@ Copyright (c) 2023 Mathieu BARBE-GAYET
 All Rights Reserved.
 Released under the GNU Affero General Public License v3.0
 """
-from tools.settings import get_settings
-from tools import utils
-import os
-import shutil
-from os.path import exists
-from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
-import time
 import click
 from click import echo
+from tools.settings import get_settings
 from tools.utils import s_print
+from tools import utils
+from os.path import exists
+from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
+import threading
+import os
+import shutil
+import time
 import json
 
 
@@ -528,4 +529,6 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
 
 
 if __name__ == '__main__':
-    main()
+    t = threading.Thread(target=main)
+    t.start()
+    t.join()
