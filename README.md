@@ -7,7 +7,7 @@ Normally if you need to provide a copy of the project you're currently working o
 ***This CLI tool aims to facilitate the backup/duplication/archiving of your development projects.***
 
 - It enables you to make copies/archives of your development project as fast as typing `shlerp`
-- It uses [matching rules](./docs/RULESYSTEM.md) that detects the language of the project you're currently working on so that you can specify exclusions.
+- It uses [matching rules](./docs/rulesystem.md) that detects the language of the project you're currently working on so that you can specify exclusions.
 - Excludes hidden files by default to avoid including .env and IDE-specific files (for example)
 - Allows you to choose where you want to do your backup/archive
 - Avoids the need to go through the GUI to make copies/archives manually

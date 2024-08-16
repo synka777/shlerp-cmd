@@ -5,7 +5,7 @@ Released under the GNU Affero General Public License v3.0
 """
 import click
 from click import echo
-from tools.settings import get_settings
+from tools.settings import get_app_details
 from tools.utils import s_print
 from tools import utils
 from os.path import exists
@@ -23,8 +23,8 @@ import json
 # Global variables
 
 state = {
-    'uid': '',
-    'step': '',
+    'uid': '',  # UID that represents the current execution. Not meant to be changed after its initial initialization
+    'step': '',  # Represents the step we're in, will be used if a SIGINT occurs
     'total': 0,
     'done': 0,
     'failed': 0,
@@ -349,7 +349,7 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
         return utils.update_state(state, 1)
 
 
-@click.command(epilog=f'shlerp v{get_settings()["proj_ver"]} - More details: https://github.com/synchronic777/shlerp-cli')
+@click.command(epilog=f'shlerp v{get_app_details()["proj_ver"]} - More details: https://github.com/synchronic777/shlerp-cli')
 @click.option('-p', '--path', type=click.Path(),
               help='The path of the project we want to backup.')
 @click.option('-o', '--output', type=click.Path(),
