@@ -1,7 +1,7 @@
 import os
 from os import environ
 from os.path import join, exists
-from tools.settings import get_settings
+from tools.data import get_settings
 from tools.utils import s_print, req_installed
 import platform
 import shutil

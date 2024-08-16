@@ -5,7 +5,7 @@ Released under the GNU Affero General Public License v3.0
 """
 import click
 from click import echo
-from tools.settings import get_app_details
+from tools.data import get_app_details
 from tools.utils import s_print
 from tools import utils
 from os.path import exists

@@ -1,4 +1,4 @@
-from tools.settings import get_settings
+from tools.data import get_settings
 from uuid import uuid4
 from datetime import datetime
 from os.path import exists
