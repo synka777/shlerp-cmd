@@ -24,7 +24,7 @@ Why is it designed like this? Because of runtime issues. The runtime is greatly 
 Each time a file or folder is matched, a score (weight) is added to the rule.
 So each time the script runs, the script searches for weight with each criteria that is defined in every rule.
 
-2. Once we know which rule is the one that matches the best the language of the project we currently want to process, the script will apply the actions that are defined for the elected rule. It will only support files and folders exclusions as I'm writhing this.
+2. Once we know which rule is the one that matches the best the language of the project we currently want to process, the script will apply the actions that are defined into the elected rule. It will only support files and folders exclusions as I'm writing this.
 
 
 A full matching rule looks like this:
@@ -61,7 +61,7 @@ A full matching rule looks like this:
         }
     }
 ```
-As you can see, it is composed by two main sections:
+As you can see, it is composed of two main sections:
 1. A detection section "detect", that is there to define which elements we want to find.
 This section is by itself composed by two subsections: files, and folders.
     - "files": this array is where you can put file objects that will be used

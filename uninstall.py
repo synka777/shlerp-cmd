@@ -2,7 +2,7 @@ import os
 from os import environ
 from os.path import exists
 from tools.utils import s_print
-from tools.settings import get_settings
+from tools.data import get_settings
 import sys
 import subprocess
 

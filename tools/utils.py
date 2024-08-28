@@ -294,17 +294,20 @@ def elect(leads):
     return None if len(winner) == 0 else winner
 
 
-def crawl_for_weight(proj_fld, leads):
+def crawl_for_weight(proj_fld, rules):
     """Crawl the project to find files matching the extensions we provide to this function
     :param proj_fld: text, the folder we want to process
-    :param leads: object list containing languages names, extensions to crawl and weights
+    :param rules: object list containing languages names, extensions to crawl and weights
     :return: an updated list with some more weight (hopefully)
     """
-    for lead in leads:
-        for ext in lead['extensions']:
-            for _ in glob.iglob(f'{proj_fld}/**/{ext["name"]}', recursive=True):
-                lead['total'] += ext['weight']
-    return leads
+    for rule in rules:
+        if 'total' not in rule.keys():
+            rule['total'] = 0
+        for ext_elem in rule['detect']['crawl']:
+            for ext in ext_elem['name']:
+                for _ in glob.iglob(f'{proj_fld}/**/{ext}', recursive=True):
+                    rule['total'] += ext_elem['weight']
+    return rules
 
 
 def enforce_limit(tmp_file):

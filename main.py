@@ -39,7 +39,19 @@ def auto_detect(proj_fld, uid):
     leads = []
     tried_history = False
     tried_all = False
+    crawl_mode = False
+    crawled = False
+    threshold = 10  # Adapt it to match expected behavior
     state['step'] = 'scan'
+
+    def against_threshold(_leads):
+        # If the weight of the rule that has the heaviest score is lighter than the threshold,
+        # We empty the leads list
+        elected_rule = utils.elect(_leads)
+        if not elected_rule:
+            return list([])
+        return list([]) if elected_rule[0]['total'] < threshold else list([elected_rule[0]])
+
     while True:
         try:
             with open(f'{os.getcwd()}/config/rules.json', 'r') as read_file:
@@ -53,11 +65,12 @@ def auto_detect(proj_fld, uid):
                 with open(f'{os.getcwd()}/tmp/tmp.json', 'r') as read_tmp:
                     tmp_file = json.load(read_tmp)
                     rules_history = tmp_file['rules_history']
-                    for rule in rules:
+                    rules_cpy = rules.copy()
+                    for rule in rules_cpy:
                         if rule['name'] not in rules_history:
-                            current_pos = rules.index(rule)
-                            rules.pop(current_pos)
-            except (FileNotFoundError, ValueError):
+                            rules.remove(rule)
+            # except (FileNotFoundError, ValueError):
+            except FileNotFoundError:
                 s_print('scan', 'I', 'Temp file not found, will use the whole ruleset instead', uid)
                 tmp_file = {'rules_history': []}
                 tmp_fld = f'{os.getcwd()}/tmp'
@@ -67,28 +80,35 @@ def auto_detect(proj_fld, uid):
                     write_tmp.write(json.dumps(tmp_file, indent=4))
                 tried_history = True
         else:
-            to_prune = []
-            for rule_name in rules_history:
-                for rule in rules:
-                    if rule['name'] == rule_name:
-                        to_prune.append(rule)
-            for junk in to_prune:
-                rules.remove(junk)
+            if not crawl_mode:
+                # Else if the history has already been tried AND we are not going to crawl in this loop iteration,
+                # only try the remaining rules that were not present into the rules history
+                to_prune = []
+                for rule_name in rules_history:
+                    for rule in rules:
+                        if rule['name'] == rule_name:
+                            to_prune.append(rule)
+                for already_tried_rule in to_prune:
+                    rules.remove(already_tried_rule)
 
-        for rule in rules:
-            extensions = []
-            total = 0
-            for file in rule['detect']['files']:
-                names = file['name']
-                pattern = file['pattern']
-                if len(names) == 1:
-                    # If only one extension, add it to the extension array
-                    if names[0].startswith('*.'):
-                        extensions.append({
-                            'name': names[0],
-                            'weight': file['weight']
-                        })
-                    else:
+        #####################
+        # Step 1: Evaluating rules based on the current project
+
+        # Loop iterations 1 & 2: Pattern matching system
+        if not tried_history:
+            # First loop iteration: Pattern matching against the recent rules history
+            # Flushes the leads list if the threshold hasn't been reached by any rule
+            leads = against_threshold(leads)
+            tried_history = True
+        if not crawl_mode:
+            for rule in rules:
+                total = 0
+                # Compare the files found into the project with the files that are defined into the current rule.
+                # If both are the same, then it's a match. In this case, add score (weight) for the current rule.
+                for file in rule['detect']['match']['files']:
+                    names = file['name']
+                    pattern = file['pattern']
+                    if len(names) == 1:
                         # If only one filename check if it exists, then check its content
                         filename = names[0]
                         if exists(f'{proj_fld}/{filename}'):
@@ -99,61 +119,59 @@ def auto_detect(proj_fld, uid):
                                         total += file['weight']
                             else:
                                 total += file['weight']
-                if len(names) > 1:
-                    for name in names:
-                        if name.startswith('*.'):
-                            extensions.append({
-                                'name': name,
-                                'weight': file['weight']
-                            })
-                        else:
-                            # If the filename is not an extension, check for its existence right away
+                    if len(names) > 1:
+                        for name in names:
                             if exists(f'{proj_fld}/{name}'):
                                 total += file['weight']
 
-            for folder in rule['detect']['folders']:
-                name = folder['name']
-                # We check if each folder from the current rule exists
-                if exists(f'{proj_fld}/{name}/'):
-                    # If we don't have any files to check in the folder, increment the rule weight
-                    if not folder['files']:
-                        total += folder['weight']
-                    else:
-                        # Make sure that each files from the folder element exists before increasing the weight
-                        match = True
-                        for file in folder['files']:
-                            if not exists(f'{proj_fld}/{folder["name"]}/{file}'):
-                                match = False
-                        if match:
+                # Then we compare the project sub-folders with the folders defined into the current rule.
+                for folder in rule['detect']['match']['folders']:
+                    name = folder['name']
+                    # We check if each folder from the current rule exists
+                    if exists(f'{proj_fld}/{name}/'):
+                        # If we don't have any files to check in the folder, increment the rule weight
+                        if not folder['files']:
                             total += folder['weight']
-            rule["total"] = total
-            rule["extensions"] = extensions
-            leads.append(rule)
-
-        crawled = False
-        if utils.weight_found(leads):
-            leads = utils.elect(leads)
+                        else:
+                            # Make sure that each files from the folder element exists before increasing the weight
+                            match = True
+                            for file in folder['files']:
+                                if not exists(f'{proj_fld}/{folder["name"]}/{file}'):
+                                    match = False
+                            if match:
+                                total += folder['weight']
+                rule["total"] = total
+                leads.append(rule)
         else:
-            # If the main method we use to find weight (filename matching) hasn't matched anything
-            # Use iglob to match files that have a given extension and update the weights
-            leads = utils.crawl_for_weight(proj_fld, leads)
+            # Loop iteration 3: Crawl for file extensions and the rule with the heaviest score will be elected
+            s_print('scan', 'I', 'Crawling...', uid)
+            leads = utils.crawl_for_weight(proj_fld, rules)
             crawled = True
-            if utils.weight_found(leads):
-                leads = utils.elect(leads)
 
-        # If weight have been found BUT we have multiple winners, search for more weight
-        if utils.weight_found(leads) and len(leads) > 1:
+        #####################
+        # Step 2: flush or sort the "leads" list,
+        # intermediate definition of variables for next loop iterations
+
+        if tried_history:
             if not crawled:
-                s_print('scan', 'I', 'Crawling...', uid)
-                leads = utils.crawl_for_weight(proj_fld, leads)
+                # Second loop iteration: Pattern matching against the whole ruleset
+                # Flushes the leads list if the threshold hasn't been reached by any rule
+                leads = against_threshold(leads)
+                crawl_mode = True
+            else:
+                # After the 3rd loop iteration (scan for file extensions),
+                # sort the rules by highest score, no threshold to reach here
+                leads = utils.elect(leads)
+                tried_all = True
 
-        if not tried_history:
-            tried_history = True
-        else:
-            tried_all = True
+        #####################
+        # Step 3: Duplicates check & breaking out of the loop
 
         # Final checks before finishing the current iteration in the loop
+        # This section is mostly used to break out of the loop and format proper outputs according to
+        # what happened during the current and previous loop iterations
         if len(leads) > 1:
+            print([f'{lead["name"]} {lead["total"]}' for lead in leads])
             # If we have more than one language remaining it means the auto-detection wasn't successful
             leads = list([])
             if tried_all:
@@ -171,6 +189,7 @@ def auto_detect(proj_fld, uid):
                     break
                 else:
                     break
+
             else:
                 leads = list([])
                 if tried_all:
@@ -443,6 +462,8 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
                     if not batch_elem.startswith('.'):
                         s_print('scan', 'I', f'Scanning {batch_elem}', uid)
                         elem_rule = auto_detect(batch_elem, uid)
+                        print('ELECTED', elem_rule['name'])
+                        exit()
                 if elem_rule:
                     backup_sources.append({
                         'proj_fld': batch_elem,
