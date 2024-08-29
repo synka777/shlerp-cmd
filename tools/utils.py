@@ -304,7 +304,7 @@ def crawl_for_weight(proj_fld, rules):
         if 'total' not in rule.keys():
             rule['total'] = 0
         for ext_elem in rule['detect']['crawl']:
-            for ext in ext_elem['name']:
+            for ext in ext_elem['exts']:
                 for _ in glob.iglob(f'{proj_fld}/**/{ext}', recursive=True):
                     rule['total'] += ext_elem['weight']
     return rules
@@ -313,7 +313,6 @@ def crawl_for_weight(proj_fld, rules):
 def enforce_limit(tmp_file):
     """Shortens the history if it is too long compared to history_limit
     :param tmp_file: Temporary file containing the history list
-    :return:
     """
     settings = get_settings()
     history = tmp_file['rules_history']
@@ -327,8 +326,8 @@ def enforce_limit(tmp_file):
 
 def history_updated(rule, tmp_file):
     """Updates the history with a new rule
-    :param rule:  List of objects representing potential winners
-    :param tmp_file:
+    :param rule: List of dicts representing potential winners
+    :param tmp_file: Temporary file containing the history list
     :return: A boolean depending on the outcome of this function
     """
     current_lang = rule['name']

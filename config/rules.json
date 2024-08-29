@@ -14,8 +14,7 @@
             },
             "crawl":[
                 {
-                    "name":["*.py"],
-                    "pattern":null,
+                    "exts":["*.py"],
                     "weight":0.5
                 }
             ]
@@ -34,13 +33,7 @@
         "name":"Javascript",
         "detect":{
             "match":{
-                "files":[
-                    {
-                        "name":["tslint.json", "eslint.json", "package.json", "tsconfig.json"],
-                        "pattern":null,
-                        "weight":4
-                    }
-                ],
+                "files":[],
                 "folders":[
                     {
                         "name":"node_modules",
@@ -51,8 +44,7 @@
             },
             "crawl":[
                 {
-                    "name":["*.js", "*.ts", "*.jsx"],
-                    "pattern":null,
+                    "exts":["*.js", "*.ts", "*.jsx"],
                     "weight":0.5
                 }
             ]
@@ -62,7 +54,7 @@
             "after":[],
             "exclude":{
                 "files":["out.log", "karma.conf.js"],
-                "folders":["buildprep", "HEMPTYDIR"],
+                "folders":["buildprep"],
                 "dep_folder": "node_modules"
             }
         }
@@ -88,8 +80,7 @@
             },
             "crawl":[
                 {
-                    "name":["*.class", "*.java", "*.jar"],
-                    "pattern":null,
+                    "exts":["*.class", "*.java", "*.jar"],
                     "weight":0.5
                 }
             ]

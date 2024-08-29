@@ -65,10 +65,12 @@ def auto_detect(proj_fld, uid):
                 with open(f'{os.getcwd()}/tmp/tmp.json', 'r') as read_tmp:
                     tmp_file = json.load(read_tmp)
                     rules_history = tmp_file['rules_history']
-                    rules_cpy = rules.copy()
-                    for rule in rules_cpy:
-                        if rule['name'] not in rules_history:
-                            rules.remove(rule)
+                    print('Rules history:', [rule for rule in rules_history])
+                    if len(rules_history) > 0:
+                        rules_cpy = rules.copy()
+                        for rule in rules_cpy:
+                            if rule['name'] not in rules_history:
+                                rules.remove(rule)
             # except (FileNotFoundError, ValueError):
             except FileNotFoundError:
                 s_print('scan', 'I', 'Temp file not found, will use the whole ruleset instead', uid)
@@ -93,13 +95,8 @@ def auto_detect(proj_fld, uid):
 
         #####################
         # Step 1: Evaluating rules based on the current project
-
+        print('LOOOOOOP', [rule['name'] for rule in rules])
         # Loop iterations 1 & 2: Pattern matching system
-        if not tried_history:
-            # First loop iteration: Pattern matching against the recent rules history
-            # Flushes the leads list if the threshold hasn't been reached by any rule
-            leads = against_threshold(leads)
-            tried_history = True
         if not crawl_mode:
             for rule in rules:
                 total = 0
@@ -148,20 +145,30 @@ def auto_detect(proj_fld, uid):
             leads = utils.crawl_for_weight(proj_fld, rules)
             crawled = True
 
+        print([f'{lead["name"]}: {lead["total"]}' for lead in leads])
+
         #####################
         # Step 2: flush or sort the "leads" list,
         # intermediate definition of variables for next loop iterations
 
-        if tried_history:
+        if not tried_history:
+            # First loop iteration: Pattern matching against the recent rules history
+            # Flushes the leads list if the threshold hasn't been reached by any rule
+            leads = against_threshold(leads)
+            print('FIRST LOOP ^')
+            tried_history = True
+        else:
             if not crawled:
                 # Second loop iteration: Pattern matching against the whole ruleset
                 # Flushes the leads list if the threshold hasn't been reached by any rule
                 leads = against_threshold(leads)
+                print('2ND LOOP ^', [lead['name'] for lead in leads])
                 crawl_mode = True
             else:
                 # After the 3rd loop iteration (scan for file extensions),
                 # sort the rules by highest score, no threshold to reach here
                 leads = utils.elect(leads)
+                print('3RD LOOP ^', [lead['name'] for lead in leads])
                 tried_all = True
 
         #####################
