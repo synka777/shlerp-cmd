@@ -10,7 +10,10 @@
             "max_log_size": 50000
         }
     },
-    "rules": {
-        "history_limit": 2
+"rules": {
+    "history_limit": {
+	    "frameworks": 2,
+	    "vanilla": 2
     }
+}
 }

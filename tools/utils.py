@@ -229,19 +229,19 @@ def get_files(path, exclusions, options):
         return [
             file for file in os.listdir(path)
             if (exclusions['dep_folder'] and file != exclusions['dep_folder'])
-            or not exclusions['dep_folder']
+               or not exclusions['dep_folder']
         ]
     elem_list = []
     dep_fld = exclusions['dep_folder']
     for elem in os.listdir(path):
         excl_matched = False
         if (
-            not options['keephidden'] and
-            elem.startswith('.') and
-            not (
-                elem == '.git' or
-                elem == '.gitignore'
-            )
+                not options['keephidden'] and
+                elem.startswith('.') and
+                not (
+                        elem == '.git' or
+                        elem == '.gitignore'
+                )
         ):
             excl_matched = True
         if os.path.isdir(f'{path}/{elem}'):
@@ -267,30 +267,20 @@ def get_files(path, exclusions, options):
     return elem_list
 
 
-def weight_found(leads):
-    """Self-explanatory
-    :param leads: List of objects representing potential winners
-    :return: True if some patterns has a weight
-    """
-    for lead in leads:
-        if lead['total'] > 0:
-            return True
-    return False
-
-
 def elect(leads):
     """Determines which language pattern(s) has the heavier weight
     :param leads: List of objects representing potential winners
     :return: The object(s) that has the heaviest weight
     """
     winner = []
-    leads.sort(key=lambda x: x['total'], reverse=True)
-    for lead in leads:
-        if not winner:
-            winner.append(lead)
-        else:
-            if lead['total'] == winner[0]['total']:
+    if leads:
+        leads.sort(key=lambda x: x['total'], reverse=True)
+        for lead in leads:
+            if not winner:
                 winner.append(lead)
+            else:
+                if lead['total'] == winner[0]['total']:
+                    winner.append(lead)
     return None if len(winner) == 0 else winner
 
 
@@ -303,38 +293,46 @@ def crawl_for_weight(proj_fld, rules):
     for rule in rules:
         if 'total' not in rule.keys():
             rule['total'] = 0
-        for ext_elem in rule['detect']['crawl']:
-            for ext in ext_elem['exts']:
+        for ext_elem in rule['detect']['extensions']:
+            for ext in ext_elem['names']:
                 for _ in glob.iglob(f'{proj_fld}/**/{ext}', recursive=True):
                     rule['total'] += ext_elem['weight']
     return rules
 
 
-def enforce_limit(tmp_file):
-    """Shortens the history if it is too long compared to history_limit
-    :param tmp_file: Temporary file containing the history list
+def enforce_limit(history_file, settings):
+    """Shortens the history if it is too long compared to history_limit parameters.
+    Can happen if these parameters have been reduced between two shlerp script executions
+    :param history_file: Temporary file containing the history lists
+    :param settings: shlerp settings
     """
-    settings = get_settings()
-    history = tmp_file['rules_history']
-    history_limit = settings['rules']['history_limit']
-    if len(history) > history_limit:
-        history = history[:history_limit]
-        with open('tmp/tmp.json', 'w') as write_tmp:
-            tmp_file['rules_history'] = history
-            write_tmp.write(json.dumps(tmp_file, indent=4))
+    history_limits = settings['rules']['history_limit']
+    rule_types = history_limits.keys()
+    # Will cut the history if the length is superior to what is set up in the settings,
+    # rule_types being 'frameworks' and 'vanilla'
+    for rule_type in rule_types:
+        if len(history_file[rule_type]) > history_limits[rule_type]:
+            history_file[rule_type] = history_file[:history_limits[rule_type]]
+            with open('tmp/rules_history.json', 'w') as write_tmp:
+                # Updates the history according to the rule type that has been elected
+                write_tmp.write(json.dumps(history_file, indent=4))
 
 
-def history_updated(rule, tmp_file):
+def history_updated(rule, history_file, framework):
     """Updates the history with a new rule
     :param rule: List of dicts representing potential winners
-    :param tmp_file: Temporary file containing the history list
+    :param history_file: Temporary file containing the history list
+    :param framework: Boolean that allows to tell the functon if the rule to add is vanilla or framework
     :return: A boolean depending on the outcome of this function
     """
     current_lang = rule['name']
     try:
-        enforce_limit(tmp_file)
-        history = tmp_file['rules_history']
-        history_limit = get_settings()['rules']['history_limit']
+        settings = get_settings()
+        enforce_limit(history_file, settings)
+        history_limits = settings['rules']['history_limit']
+        rule_type = 'frameworks' if framework else 'vanilla'
+        history = history_file[rule_type]
+        history_limit = history_limits[rule_type]
         # If the current language is in the history
         if current_lang in history:
             # But it's not the latest, get its position and remove it to add it back in first pos
@@ -342,26 +340,22 @@ def history_updated(rule, tmp_file):
                 current_pos = history.index(current_lang)
                 history.pop(current_pos)
                 history.insert(0, current_lang)
-                with open(f'{os.getcwd()}/tmp/tmp.json', 'w') as write_tmp:
-                    tmp_file['rules_history'] = history
-                    write_tmp.write(json.dumps(tmp_file, indent=4))
-                    return True
             return True
         else:
             # If the current language isn't in the list, remove the oldest one if needed and then add it
             if len(history) == history_limit:
                 history.pop()
             history.insert(0, current_lang)
-            tmp_file['rules_history'] = history
-            with open('tmp/tmp.json', 'w') as write_tmp:
-                write_tmp.write(json.dumps(tmp_file, indent=4))
-                return True
+
+        with open(f'{os.getcwd()}/tmp/rules_history.json', 'w') as write_tmp:
+            write_tmp.write(json.dumps(history_file, indent=4))
+            return True
     except (FileNotFoundError, ValueError):
-        with open(f'{os.getcwd()}/tmp/tmp.json', 'a') as write_tmp:
+        with open(f'{os.getcwd()}/tmp/rules_history.json', 'a') as write_tmp:
             write_tmp.write(json.dumps({
                 "rules_history": [current_lang]
             }))
-            if exists(f'{os.getcwd()}/tmp/tmp.json'):
+            if exists(f'{os.getcwd()}/tmp/rules_history.json'):
                 return True
     return False
 

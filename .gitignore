@@ -2,7 +2,8 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=pycharm,macos,venv
 
 # Project
-tmp.json
+rules_history.json
+rules_history.json
 __pycache__
 
 ### macOS ###

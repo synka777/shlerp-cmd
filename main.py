@@ -36,57 +36,60 @@ state = {
 
 
 def auto_detect(proj_fld, uid):
-    leads = []
+    fw_leads = []
+    v_leads = []
+    framework_matched = False
+    threshold_reached = False
     tried_history = False
     tried_all = False
-    crawl_mode = False
-    crawled = False
     threshold = 10  # Adapt it to match expected behavior
     state['step'] = 'scan'
 
     def against_threshold(_leads):
         # If the weight of the rule that has the heaviest score is lighter than the threshold,
         # We empty the leads list
-        elected_rule = utils.elect(_leads)
-        if not elected_rule:
+        _elected_rule = utils.elect(_leads)
+        if not _elected_rule:
             return list([])
-        return list([]) if elected_rule[0]['total'] < threshold else list([elected_rule[0]])
+        return list([]) if _elected_rule[0]['total'] < threshold else list([_elected_rule[0]])
+
+    try:
+        with open(f'{os.getcwd()}/config/rules.json', 'r') as read_file:
+            rules = json.load(read_file)
+    except FileNotFoundError:
+        s_print('scan', 'E', 'rules.json not found', uid)
+        exit(1)
 
     while True:
-        try:
-            with open(f'{os.getcwd()}/config/rules.json', 'r') as read_file:
-                rules = json.load(read_file)
-        except FileNotFoundError:
-            s_print('scan', 'E', 'rules.json not found', uid)
-            exit(1)
-        # If the rules history hasn't been checked yet, only keep the rules that are mentioned in the tmp file
+        history_names = ('frameworks', 'vanilla')
+        unclear = False
         if not tried_history:
             try:
-                with open(f'{os.getcwd()}/tmp/tmp.json', 'r') as read_tmp:
+                # If the rules history hasn't been checked yet, only keep the rules that are mentioned in the tmp file
+                with open(f'{os.getcwd()}/tmp/rules_history.json', 'r') as read_tmp:
                     tmp_file = json.load(read_tmp)
-                    rules_history = tmp_file['rules_history']
-                    print('Rules history:', [rule for rule in rules_history])
-                    if len(rules_history) > 0:
-                        rules_cpy = rules.copy()
-                        for rule in rules_cpy:
-                            if rule['name'] not in rules_history:
-                                rules.remove(rule)
-            # except (FileNotFoundError, ValueError):
+                    for hist in history_names:
+                        if len(tmp_file[hist]) > 0:
+                            ref_rules = rules.copy()
+                            for rule in ref_rules[hist]:
+                                if rule['name'] not in tmp_file[hist]:
+                                    rules[hist].remove(rule)
+
             except FileNotFoundError:
                 s_print('scan', 'I', 'Temp file not found, will use the whole ruleset instead', uid)
-                tmp_file = {'rules_history': []}
+                tmp_file = {'frameworks': [], 'vanilla': []}
                 tmp_fld = f'{os.getcwd()}/tmp'
                 if not exists(tmp_fld):
                     os.mkdir(tmp_fld)
-                with open(f'{tmp_fld}/tmp.json', 'w') as write_tmp:
+                with open(f'{tmp_fld}/rules_history.json', 'w') as write_tmp:
                     write_tmp.write(json.dumps(tmp_file, indent=4))
                 tried_history = True
         else:
-            if not crawl_mode:
-                # Else if the history has already been tried AND we are not going to crawl in this loop iteration,
-                # only try the remaining rules that were not present into the rules history
+            # Else if the history has already been tried, only try the remaining rules
+            # that were not present into the rules history
+            for hist in history_names:
                 to_prune = []
-                for rule_name in rules_history:
+                for rule_name in tmp_file[hist]:
                     for rule in rules:
                         if rule['name'] == rule_name:
                             to_prune.append(rule)
@@ -94,93 +97,116 @@ def auto_detect(proj_fld, uid):
                     rules.remove(already_tried_rule)
 
         #####################
-        # Step 1: Evaluating rules based on the current project
-        print('LOOOOOOP', [rule['name'] for rule in rules])
-        # Loop iterations 1 & 2: Pattern matching system
-        if not crawl_mode:
-            for rule in rules:
-                total = 0
-                # Compare the files found into the project with the files that are defined into the current rule.
-                # If both are the same, then it's a match. In this case, add score (weight) for the current rule.
-                for file in rule['detect']['match']['files']:
-                    names = file['name']
-                    pattern = file['pattern']
-                    if len(names) == 1:
-                        # If only one filename check if it exists, then check its content
-                        filename = names[0]
-                        if exists(f'{proj_fld}/{filename}'):
-                            # If the pattern defined in the rule is not set to null, search it in the file
+        # Step 1: Evaluate rules from the frameworks section
+        print('Framework step will check', [rule['name'] for rule in rules['frameworks']])
+        for rule in rules['frameworks']:
+            total = 0
+            print('processing', rule['name'])
+            # Compare the files found into the project with the files that are defined into the current rule.
+            # If both are the same, then it's a match. In this case, add score (weight) for the current rule.
+            for file in rule['detect']['files']:
+                names = file['names']
+                pattern = file['pattern']
+                if len(names) == 1:
+                    # If only one filename check if it exists, then check its content
+                    filename = names[0]
+                    if exists(f'{proj_fld}/{filename}'):
+                        # If the pattern defined in the rule is not set to null, search it in the file
+                        if pattern:
+                            with open(f'{proj_fld}/{filename}', 'r') as file_content:
+                                if pattern in file_content.read():
+                                    print('pattern found:', file['pattern'], '+',file['weight'])
+                                    total += file['weight']
+                        else:
+                            print('+', file['weight'])
+                            total += file['weight']
+                if len(names) > 1:
+                    for name in names:
+                        if exists(f'{proj_fld}/{name}'):
                             if pattern:
-                                with open(f'{proj_fld}/{filename}', 'r') as file_content:
-                                    if pattern in file_content:
+                                with open(f'{proj_fld}/{name}', 'r') as file_content:
+                                    if pattern in file_content.read():
+                                        print('pattern found:', file['pattern'], '+', file['weight'])
                                         total += file['weight']
                             else:
-                                total += file['weight']
-                    if len(names) > 1:
-                        for name in names:
-                            if exists(f'{proj_fld}/{name}'):
+                                print('exists' ,f'{proj_fld}/{name},  +', file['weight'])
                                 total += file['weight']
 
-                # Then we compare the project sub-folders with the folders defined into the current rule.
-                for folder in rule['detect']['match']['folders']:
-                    name = folder['name']
-                    # We check if each folder from the current rule exists
-                    if exists(f'{proj_fld}/{name}/'):
-                        # If we don't have any files to check in the folder, increment the rule weight
-                        if not folder['files']:
+            # Then we compare the project sub-folders with the folders defined into the current rule.
+            for folder in rule['detect']['folders']:
+                name = folder['name']
+                # We check if each folder from the current rule exists
+                if exists(f'{proj_fld}/{name}/'):
+                    # If we don't have any files to check in the folder, increment the rule weight
+                    if not folder['files']:
+                        total += folder['weight']
+                    else:
+                        # Make sure that each files from the folder element exists before increasing the weight
+                        match = True
+                        for file in folder['files']:
+                            if not exists(f'{proj_fld}/{folder["name"]}/{file}'):
+                                match = False
+                        if match:
+                            print('+', folder['weight'])
                             total += folder['weight']
-                        else:
-                            # Make sure that each files from the folder element exists before increasing the weight
-                            match = True
-                            for file in folder['files']:
-                                if not exists(f'{proj_fld}/{folder["name"]}/{file}'):
-                                    match = False
-                            if match:
-                                total += folder['weight']
-                rule["total"] = total
-                leads.append(rule)
-        else:
-            # Loop iteration 3: Crawl for file extensions and the rule with the heaviest score will be elected
-            s_print('scan', 'I', 'Crawling...', uid)
-            leads = utils.crawl_for_weight(proj_fld, rules)
-            crawled = True
+            rule["total"] = total
+            print('total reached', total)
+            # Calculates the threshold for the current rule
+            rule_threshold = 0
+            for file_then_fld in rule['detect'].keys():
+                # SUPPORT DIFFERENCES BETWEEN FILES AND FOLDERS.
+                # IF FILES, THEN NAME IS NOT A
+                for criteria in rule['detect'][file_then_fld]:
+                    rule_threshold += criteria['weight']
+            # Then add the rule into the leads array if all of its criteria matched
+            print(rule['total'], '>=', rule_threshold)
+            if rule['total'] >= rule_threshold:
+                fw_leads.append(rule)
 
-        print([f'{lead["name"]}: {lead["total"]}' for lead in leads])
+        print('Leads found', [f'{fw_lead["name"]}, {fw_lead["total"]}' for fw_lead in fw_leads])
+        fw_leads = utils.elect(fw_leads)
+        print('Elected:', fw_leads)
+        if fw_leads:
+            framework_matched = True
 
         #####################
-        # Step 2: flush or sort the "leads" list,
-        # intermediate definition of variables for next loop iterations
+        # Step 2: Evaluate vanilla rules if the frameworks didn't match anything
+        # TODO: SEE IF THIS CONDITION IS USEFUL OR IF US BEING HERE IS ALREADY IMPLICATING THAT FWS DIDNT MATCH
+        if not framework_matched:
+            print('Will check', rules['vanilla'])
+            s_print('scan', 'I', 'Crawling...', uid)
+            v_leads = utils.crawl_for_weight(proj_fld, rules['vanilla'])
+            v_leads = against_threshold(v_leads)
+            if len(v_leads) > 0:
+                threshold_reached = True
 
-        if not tried_history:
-            # First loop iteration: Pattern matching against the recent rules history
-            # Flushes the leads list if the threshold hasn't been reached by any rule
-            leads = against_threshold(leads)
-            print('FIRST LOOP ^')
-            tried_history = True
-        else:
-            if not crawled:
-                # Second loop iteration: Pattern matching against the whole ruleset
-                # Flushes the leads list if the threshold hasn't been reached by any rule
-                leads = against_threshold(leads)
-                print('2ND LOOP ^', [lead['name'] for lead in leads])
-                crawl_mode = True
+            print([f'Detected {lead["name"]}: {lead["total"]}' for lead in v_leads])
+
+        #####################
+        # Step 3: Intermediate definition of variables for next loop iterations
+
+        if not framework_matched and not threshold_reached:
+            # If the frameworks and vanilla rules have not reached their expected goals,
+            # Prepare the variables for the next run through the loop
+            if not tried_history:
+                # First loop iteration: The rules from the tmp file have been checked
+                tried_history = True
             else:
-                # After the 3rd loop iteration (scan for file extensions),
-                # sort the rules by highest score, no threshold to reach here
-                leads = utils.elect(leads)
-                print('3RD LOOP ^', [lead['name'] for lead in leads])
                 tried_all = True
 
+        if v_leads and len(v_leads) > 1:
+            unclear = True
+        if fw_leads and len(fw_leads) > 1:
+            unclear = True
         #####################
-        # Step 3: Duplicates check & breaking out of the loop
+        # Step 4: Duplicates check & breaking out of the loop
 
         # Final checks before finishing the current iteration in the loop
         # This section is mostly used to break out of the loop and format proper outputs according to
         # what happened during the current and previous loop iterations
-        if len(leads) > 1:
-            print([f'{lead["name"]} {lead["total"]}' for lead in leads])
+        if unclear:
             # If we have more than one language remaining it means the auto-detection wasn't successful
-            leads = list([])
+            v_leads = fw_leads = list([])
             if tried_all:
                 s_print('scan', 'W', 'Unable to determine the main language for this project', uid)
                 break
@@ -188,21 +214,25 @@ def auto_detect(proj_fld, uid):
                 s_print('scan', 'I', 'Trying the whole ruleset...', uid)
                 # Ah shit, here we go again
         else:
-            if utils.weight_found(leads):
+            framework = True if fw_leads else False
+            elected_rule = v_leads[0] if v_leads else fw_leads[0] if fw_leads else None
+            # Obsolete function/condition?
+            if elected_rule:
                 # Successful exit point
                 # Check if the history in the tmp file can be updated before breaking out of the loop
-                if not utils.history_updated(leads[0], tmp_file):
-                    s_print('scan', 'I', 'A problem occurred when trying to write in tmp.json', uid)
+                if not utils.history_updated(elected_rule, tmp_file, framework):
+                    s_print('scan', 'I', 'A problem occurred when trying to write in rules_history.json', uid)
                     break
                 else:
                     break
-
             else:
-                leads = list([])
+                v_leads = fw_leads = list([])
                 if tried_all:
                     break
                 # Ah shit, here we go again
-    return leads[0] if leads else False
+    # TODO: Find a graceful way to handle the elected rule return
+    # return leads[0] if leads else False
+    exit(0)
 
 
 def make_archive(proj_fld, dst_path, rule, options, uid, started, count):

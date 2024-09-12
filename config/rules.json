@@ -1,107 +1,11 @@
-[
-    {
-        "name":"Python",
-        "detect":{
-            "match":{
-                "files":[],
-                "folders":[
-                    {
-                        "name":"venv",
-                        "files":["pyvenv.cfg"],
-                        "weight":4
-                    }
-                ]
-            },
-            "crawl":[
-                {
-                    "exts":["*.py"],
-                    "weight":0.5
-                }
-            ]
-        },
-        "actions":{
-            "before":[],
-            "after":[],
-            "exclude":{
-                "files":[],
-                "folders":["venv", "__pycache__"],
-                "dep_folder": null
-            }
-        }
-    },
-    {
-        "name":"Javascript",
-        "detect":{
-            "match":{
-                "files":[],
-                "folders":[
-                    {
-                        "name":"node_modules",
-                        "files":[],
-                        "weight":2
-                    }
-                ]
-            },
-            "crawl":[
-                {
-                    "exts":["*.js", "*.ts", "*.jsx"],
-                    "weight":0.5
-                }
-            ]
-        },
-        "actions":{
-            "before":[],
-            "after":[],
-            "exclude":{
-                "files":["out.log", "karma.conf.js"],
-                "folders":["buildprep"],
-                "dep_folder": "node_modules"
-            }
-        }
-    },
-    {
-        "name":"Java",
-        "detect":{
-            "match":{
+{
+    "frameworks": [
+        {
+            "name":"Ionic_cordova",
+            "detect":{
                 "files":[
                     {
-                        "name":["build.gradle"],
-                        "pattern":null,
-                        "weight":4
-                    }
-                ],
-                "folders":[
-                    {
-                        "name":"gradle/wrapper",
-                        "files":[],
-                        "weight":4
-                    }
-                ]
-            },
-            "crawl":[
-                {
-                    "exts":["*.class", "*.java", "*.jar"],
-                    "weight":0.5
-                }
-            ]
-        },
-        "actions":{
-            "before":[],
-            "after":[],
-            "exclude":{
-                "files":[],
-                "folders":[],
-                "dep_folder": null
-            }
-        }
-    },
-    {
-        "name":"Ionic_cordova",
-        "detect":{
-            "match":{
-                "files":[
-                    {
-                        "name":["ionic.config.json"],
+                        "names":["ionic.config.json"],
                         "pattern":null,
                         "weight":6
                     }
@@ -119,52 +23,137 @@
                     }
                 ]
             },
-            "crawl":[]
-        },
-        "actions":{
-            "before":[],
-            "after":[],
-            "exclude":{
-                "files":[],
-                "folders":["buildprep"],
-                "dep_folder": "node_modules"
+            "actions":{
+                "before":[],
+                "after":[],
+                "exclude":{
+                    "files":[],
+                    "folders":["buildprep"],
+                    "dep_folder": "node_modules"
+                }
             }
-        }
-    },
-    {
-        "name":"Ionic_capacitor",
-        "detect":{
-            "match":{
+        },
+        {
+            "name":"Ionic_capacitor",
+            "detect":{
                 "files":[
                     {
-                        "name":["ionic.config.json"],
+                        "names":["ionic.config.json"],
                         "pattern":null,
                         "weight":6
                     },
                     {
-                        "name":["capacitor.config.ts"],
+                        "names":["capacitor.config.ts"],
                         "pattern":null,
                         "weight":8
                     }
                 ],
+                "folders":[]
+        },
+            "actions":{
+                "before":[],
+                "after":[],
+                "exclude":{
+                    "files":["test-excl"],
+                    "folders":[],
+                    "dep_folder": "node_modules"
+                }
+            }
+        },
+        {
+            "name":"React_native",
+            "detect":{
+                "files":[
+                    {
+                        "names":["package.json", "package-lock.json"],
+                        "pattern":"react-native",
+                        "weight":6
+                    }
+                ],
                 "folders":[
+                    {
+                        "name":".expo-shared",
+                        "files":["assets.json"],
+                        "weight":6
+                    },
                     {
                         "name":"node_modules",
                         "files":[],
                         "weight":2
                     }
                 ]
-            },
-            "crawl":[]
+        },
+            "actions":{
+                "before":[],
+                "after":[],
+                "exclude":{
+                    "files":["test-excl"],
+                    "folders":[],
+                    "dep_folder": "node_modules"
+                }
+            }
+        }
+    ],
+    "vanilla": [
+        {
+        "name":"Python",
+        "detect":{
+            "extensions":[
+                {
+                    "names":["*.py"],
+                    "weight":0.5
+                }
+            ]
         },
         "actions":{
             "before":[],
             "after":[],
             "exclude":{
-                "files":["test-excl"],
-                "folders":[],
+                "files":[],
+                "folders":["venv", "__pycache__"],
+                "dep_folder": null
+            }
+        }
+    },
+    {
+        "name":"Javascript",
+        "detect":{
+            "extensions":[
+                {
+                    "names":["*.js", "*.ts", "*.jsx"],
+                    "weight":0.5
+                }
+            ]
+        },
+        "actions":{
+            "before":[],
+            "after":[],
+            "exclude":{
+                "files":["out.log", "karma.conf.js"],
+                "folders":["buildprep"],
                 "dep_folder": "node_modules"
             }
         }
+    },
+    {
+        "name":"Java",
+        "detect":{
+            "extensions":[
+                {
+                    "names":["*.class", "*.java", "*.jar"],
+                    "weight":0.5
+                }
+            ]
+        },
+        "actions":{
+            "before":[],
+            "after":[],
+            "exclude":{
+                "files":[],
+                "folders":[],
+                "dep_folder": null
+            }
+        }
     }
-]
+    ]
+}
