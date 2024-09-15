@@ -13,7 +13,7 @@
 "rules": {
     "history_limit": {
 	    "frameworks": 2,
-	    "vanilla": 2
+	    "vanilla": 1
     }
 }
 }

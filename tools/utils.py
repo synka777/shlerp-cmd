@@ -312,7 +312,7 @@ def enforce_limit(history_file, settings):
     # rule_types being 'frameworks' and 'vanilla'
     for rule_type in rule_types:
         if len(history_file[rule_type]) > history_limits[rule_type]:
-            history_file[rule_type] = history_file[:history_limits[rule_type]]
+            history_file[rule_type] = history_file[rule_type][:history_limits[rule_type]]
             with open('tmp/rules_history.json', 'w') as write_tmp:
                 # Updates the history according to the rule type that has been elected
                 write_tmp.write(json.dumps(history_file, indent=4))
@@ -340,7 +340,6 @@ def history_updated(rule, history_file, framework):
                 current_pos = history.index(current_lang)
                 history.pop(current_pos)
                 history.insert(0, current_lang)
-            return True
         else:
             # If the current language isn't in the list, remove the oldest one if needed and then add it
             if len(history) == history_limit:

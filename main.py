@@ -13,6 +13,7 @@ from signal import signal
 from signal import SIGINT
 from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
 import threading
+import re
 import os
 import sys
 import shutil
@@ -29,82 +30,31 @@ state = {
     'done': 0,
     'failed': 0,
     'failures': [],
-    'ad_failures': []
+    'ad_failures': [],
 }
 
 # Main logic & functions
 
 
 def auto_detect(proj_fld, uid):
-    fw_leads = []
     v_leads = []
+    fw_leads = []
+    recent_rules = {'frameworks': [], 'vanilla': []}
+    remaining_rules = {'frameworks': [], 'vanilla': []}
+    history_names = ('frameworks', 'vanilla')
     framework_matched = False
     threshold_reached = False
-    tried_history = False
-    tried_all = False
+    unclear = False
     threshold = 10  # Adapt it to match expected behavior
     state['step'] = 'scan'
 
-    def against_threshold(_leads):
-        # If the weight of the rule that has the heaviest score is lighter than the threshold,
-        # We empty the leads list
-        _elected_rule = utils.elect(_leads)
-        if not _elected_rule:
-            return list([])
-        return list([]) if _elected_rule[0]['total'] < threshold else list([_elected_rule[0]])
-
-    try:
-        with open(f'{os.getcwd()}/config/rules.json', 'r') as read_file:
-            rules = json.load(read_file)
-    except FileNotFoundError:
-        s_print('scan', 'E', 'rules.json not found', uid)
-        exit(1)
-
-    while True:
-        history_names = ('frameworks', 'vanilla')
-        unclear = False
-        if not tried_history:
-            try:
-                # If the rules history hasn't been checked yet, only keep the rules that are mentioned in the tmp file
-                with open(f'{os.getcwd()}/tmp/rules_history.json', 'r') as read_tmp:
-                    tmp_file = json.load(read_tmp)
-                    for hist in history_names:
-                        if len(tmp_file[hist]) > 0:
-                            ref_rules = rules.copy()
-                            for rule in ref_rules[hist]:
-                                if rule['name'] not in tmp_file[hist]:
-                                    rules[hist].remove(rule)
-
-            except FileNotFoundError:
-                s_print('scan', 'I', 'Temp file not found, will use the whole ruleset instead', uid)
-                tmp_file = {'frameworks': [], 'vanilla': []}
-                tmp_fld = f'{os.getcwd()}/tmp'
-                if not exists(tmp_fld):
-                    os.mkdir(tmp_fld)
-                with open(f'{tmp_fld}/rules_history.json', 'w') as write_tmp:
-                    write_tmp.write(json.dumps(tmp_file, indent=4))
-                tried_history = True
-        else:
-            # Else if the history has already been tried, only try the remaining rules
-            # that were not present into the rules history
-            for hist in history_names:
-                to_prune = []
-                for rule_name in tmp_file[hist]:
-                    for rule in rules:
-                        if rule['name'] == rule_name:
-                            to_prune.append(rule)
-                for already_tried_rule in to_prune:
-                    rules.remove(already_tried_rule)
-
-        #####################
-        # Step 1: Evaluate rules from the frameworks section
-        print('Framework step will check', [rule['name'] for rule in rules['frameworks']])
-        for rule in rules['frameworks']:
+    def frameworks_processing(_rules):
+        _fw_leads = []
+        for _rule in _rules['frameworks']:
             total = 0
-            print('processing', rule['name'])
             # Compare the files found into the project with the files that are defined into the current rule.
             # If both are the same, then it's a match. In this case, add score (weight) for the current rule.
-            for file in rule['detect']['files']:
+            for file in _rule['detect']['files']:
                 names = file['names']
                 pattern = file['pattern']
                 if len(names) == 1:
@@ -115,10 +65,8 @@ def auto_detect(proj_fld, uid):
                         if pattern:
                             with open(f'{proj_fld}/{filename}', 'r') as file_content:
                                 if pattern in file_content.read():
-                                    print('pattern found:', file['pattern'], '+',file['weight'])
                                     total += file['weight']
                         else:
-                            print('+', file['weight'])
                             total += file['weight']
                 if len(names) > 1:
                     for name in names:
@@ -126,14 +74,12 @@ def auto_detect(proj_fld, uid):
                             if pattern:
                                 with open(f'{proj_fld}/{name}', 'r') as file_content:
                                     if pattern in file_content.read():
-                                        print('pattern found:', file['pattern'], '+', file['weight'])
                                         total += file['weight']
                             else:
-                                print('exists' ,f'{proj_fld}/{name},  +', file['weight'])
                                 total += file['weight']
 
-            # Then we compare the project sub-folders with the folders defined into the current rule.
-            for folder in rule['detect']['folders']:
+            # Then we compare the project sub-folders with the folders defined into the current _rule.
+            for folder in _rule['detect']['folders']:
                 name = folder['name']
                 # We check if each folder from the current rule exists
                 if exists(f'{proj_fld}/{name}/'):
@@ -147,92 +93,132 @@ def auto_detect(proj_fld, uid):
                             if not exists(f'{proj_fld}/{folder["name"]}/{file}'):
                                 match = False
                         if match:
-                            print('+', folder['weight'])
                             total += folder['weight']
-            rule["total"] = total
-            print('total reached', total)
+            _rule["total"] = total
             # Calculates the threshold for the current rule
             rule_threshold = 0
-            for file_then_fld in rule['detect'].keys():
-                # SUPPORT DIFFERENCES BETWEEN FILES AND FOLDERS.
-                # IF FILES, THEN NAME IS NOT A
-                for criteria in rule['detect'][file_then_fld]:
+            for file_then_fld in _rule['detect'].keys():
+                for criteria in _rule['detect'][file_then_fld]:
                     rule_threshold += criteria['weight']
             # Then add the rule into the leads array if all of its criteria matched
-            print(rule['total'], '>=', rule_threshold)
-            if rule['total'] >= rule_threshold:
-                fw_leads.append(rule)
+            if _rule['total'] >= rule_threshold:
+                _fw_leads.append(_rule)
+        return utils.elect(_fw_leads)
 
-        print('Leads found', [f'{fw_lead["name"]}, {fw_lead["total"]}' for fw_lead in fw_leads])
-        fw_leads = utils.elect(fw_leads)
-        print('Elected:', fw_leads)
+    def vanilla_processing(_rules):
+        s_print('scan', 'I', 'Crawling...', uid)
+        leads = utils.crawl_for_weight(proj_fld, _rules['vanilla'])
+        # If the weight of the rule that has the heaviest score is lighter than the threshold,
+        # We empty the leads list
+        _elected_rule = utils.elect(leads)
+        if not _elected_rule:
+            leads = list([])
+        else:
+            leads = list([]) if _elected_rule[0]['total'] < threshold else list([_elected_rule[0]])
+        return leads
+
+    def prune_tried_rules(_rules, _tmp_file, history_type):
+        # We get a copy of the certain type of rules, let's say Vanilla rules for example.
+        _remaining_rules = _rules[history_type].copy()
+        for _rule_name in _tmp_file[history_type]:
+            for _rule in _rules[history_type]:
+                if _rule['name'] == _rule_name:
+                    _remaining_rules.remove(_rule)
+        return _remaining_rules
+
+    #####################
+    # Step 1: Get the rules from the config/temporary file
+
+    try:
+        with open(f'{os.getcwd()}/config/rules.json', 'r') as read_file:
+            rules = json.load(read_file)
+    except FileNotFoundError:
+        s_print('scan', 'E', 'rules.json not found', uid)
+        exit(1)
+
+    try:
+        with open(f'{os.getcwd()}/tmp/rules_history.json', 'r') as read_tmp:
+            tmp_file = json.load(read_tmp)
+        # If the rules history hasn't been checked yet, only keep the rules that are mentioned in the tmp file
+        for hist in history_names:
+            if len(tmp_file[hist]) > 0:
+                iter_rules = recent_rules = rules.copy()
+                for rule in iter_rules[hist]:
+                    for tmp_entry in tmp_file[hist]:
+                        if re.search(f'\b{rule["name"]}\b', tmp_entry):
+                            recent_rules[hist].remove(rule)
+    except FileNotFoundError:
+        s_print('scan', 'I', 'Temp file not found, will use the whole ruleset instead', uid)
+        tmp_file = {'frameworks': [], 'vanilla': []}
+        tmp_fld = f'{os.getcwd()}/tmp'
+        if not exists(tmp_fld):
+            os.mkdir(tmp_fld)
+        with open(f'{tmp_fld}/rules_history.json', 'w') as write_tmp:
+            write_tmp.write(json.dumps(tmp_file, indent=4))
+
+    #####################
+    # Step 2: Evaluate rules from the frameworks section
+
+    # 2-1: Using the history
+    if recent_rules:
+        fw_leads = frameworks_processing(recent_rules)
         if fw_leads:
             framework_matched = True
 
+    # 2-2: Using the remaining framework rules that were not present into the history
+    if not framework_matched:
+        if recent_rules:
+            # First we create a dict that only contains the remaining rules
+            remaining_rules['frameworks'] = prune_tried_rules(rules, tmp_file, 'frameworks')
+        else:
+            remaining_rules = rules.copy()
+
+        # Then do the pattern matching against those remaining rules
+        s_print('scan', 'I', 'Trying the whole ruleset...', uid)
+        fw_leads = frameworks_processing(remaining_rules)
+
+    if fw_leads:
+        framework_matched = True
+        if len(fw_leads) > 1:
+            unclear = True
+
+    if not framework_matched:
+
         #####################
-        # Step 2: Evaluate vanilla rules if the frameworks didn't match anything
-        # TODO: SEE IF THIS CONDITION IS USEFUL OR IF US BEING HERE IS ALREADY IMPLICATING THAT FWS DIDNT MATCH
-        if not framework_matched:
-            print('Will check', rules['vanilla'])
-            s_print('scan', 'I', 'Crawling...', uid)
-            v_leads = utils.crawl_for_weight(proj_fld, rules['vanilla'])
-            v_leads = against_threshold(v_leads)
+        # Step 3: Evaluate vanilla rules if the frameworks didn't match anything
+
+        # 3-1: Using the history
+        if recent_rules:
+            v_leads = vanilla_processing(recent_rules)
             if len(v_leads) > 0:
                 threshold_reached = True
 
-            print([f'Detected {lead["name"]}: {lead["total"]}' for lead in v_leads])
-
-        #####################
-        # Step 3: Intermediate definition of variables for next loop iterations
-
-        if not framework_matched and not threshold_reached:
-            # If the frameworks and vanilla rules have not reached their expected goals,
-            # Prepare the variables for the next run through the loop
-            if not tried_history:
-                # First loop iteration: The rules from the tmp file have been checked
-                tried_history = True
-            else:
-                tried_all = True
+        # 3-2: Using the whole ruleset
+        if not threshold_reached:
+            remaining_rules['vanilla'] = prune_tried_rules(rules, tmp_file, 'vanilla')
+            s_print('scan', 'I', 'Trying the whole ruleset...', uid)
+            v_leads = vanilla_processing(remaining_rules)
 
         if v_leads and len(v_leads) > 1:
             unclear = True
-        if fw_leads and len(fw_leads) > 1:
-            unclear = True
-        #####################
-        # Step 4: Duplicates check & breaking out of the loop
 
-        # Final checks before finishing the current iteration in the loop
-        # This section is mostly used to break out of the loop and format proper outputs according to
-        # what happened during the current and previous loop iterations
-        if unclear:
-            # If we have more than one language remaining it means the auto-detection wasn't successful
-            v_leads = fw_leads = list([])
-            if tried_all:
-                s_print('scan', 'W', 'Unable to determine the main language for this project', uid)
-                break
-            else:
-                s_print('scan', 'I', 'Trying the whole ruleset...', uid)
-                # Ah shit, here we go again
+    #####################
+    # Step 4: Exit the function
+
+    if unclear:
+        # If we have more than one language remaining it means the auto-detection wasn't successful
+        s_print('scan', 'W', 'Unable to determine the main language for this project', uid)
+        return None
+    else:
+        framework = True if fw_leads else False
+        elected_rule = v_leads[0] if v_leads else fw_leads[0] if fw_leads else None
+        if elected_rule:
+            # Check if the history in the tmp file can be updated before breaking out of the loop
+            if not utils.history_updated(elected_rule, tmp_file, framework):
+                s_print('scan', 'W', 'A problem occurred when trying to write in rules_history.json', uid)
+            return elected_rule
         else:
-            framework = True if fw_leads else False
-            elected_rule = v_leads[0] if v_leads else fw_leads[0] if fw_leads else None
-            # Obsolete function/condition?
-            if elected_rule:
-                # Successful exit point
-                # Check if the history in the tmp file can be updated before breaking out of the loop
-                if not utils.history_updated(elected_rule, tmp_file, framework):
-                    s_print('scan', 'I', 'A problem occurred when trying to write in rules_history.json', uid)
-                    break
-                else:
-                    break
-            else:
-                v_leads = fw_leads = list([])
-                if tried_all:
-                    break
-                # Ah shit, here we go again
-    # TODO: Find a graceful way to handle the elected rule return
-    # return leads[0] if leads else False
-    exit(0)
+            return None
 
 
 def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
@@ -499,7 +485,7 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
                     if not batch_elem.startswith('.'):
                         s_print('scan', 'I', f'Scanning {batch_elem}', uid)
                         elem_rule = auto_detect(batch_elem, uid)
-                        print('ELECTED', elem_rule['name'])
+                        print('ELECTED', elem_rule['name'] if elem_rule else None)
                         exit()
                 if elem_rule:
                     backup_sources.append({
