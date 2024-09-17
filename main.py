@@ -5,9 +5,9 @@ Released under the GNU Affero General Public License v3.0
 """
 import click
 from click import echo
-from tools.data import get_app_details
-from tools.utils import s_print
-from tools import utils
+from tools.utils import get_app_details
+from tools.pip.putils import s_print
+from tools.pip import putils
 from os.path import exists
 from signal import signal
 from signal import SIGINT
@@ -102,14 +102,14 @@ def auto_detect(proj_fld, uid):
             # Then add the rule into the leads array if all of its criteria matched
             if _rule['total'] >= rule_threshold:
                 _fw_leads.append(_rule)
-        return utils.elect(_fw_leads)
+        return putils.elect(_fw_leads)
 
     def vanilla_processing(_rules):
         s_print('scan', 'I', 'Crawling...', uid)
-        leads = utils.crawl_for_weight(proj_fld, _rules['vanilla'])
+        leads = putils.crawl_for_weight(proj_fld, _rules['vanilla'])
         # If the weight of the rule that has the heaviest score is lighter than the threshold,
         # We empty the leads list
-        _elected_rule = utils.elect(leads)
+        _elected_rule = putils.elect(leads)
         if not _elected_rule:
             leads = list([])
         else:
@@ -213,7 +213,7 @@ def auto_detect(proj_fld, uid):
         elected_rule = v_leads[0] if v_leads else fw_leads[0] if fw_leads else None
         if elected_rule:
             # Check if the history in the tmp file can be updated before exiting the function
-            if not utils.history_updated(elected_rule, tmp_file, framework):
+            if not putils.history_updated(elected_rule, tmp_file, framework):
                 s_print('scan', 'W', 'A problem occurred when trying to write in rules_history.json', uid)
             return elected_rule
         else:
@@ -236,7 +236,7 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
         state['step'] = 'arch'
         if state['total'] == 1:
             count = ''
-        for elem_name in utils.iglob_hidden(proj_fld + '/**', recursive=True):
+        for elem_name in putils.iglob_hidden(proj_fld + '/**', recursive=True):
             rel_name = elem_name.split(f'{proj_fld}/')[1]
             proceed = True
             output = True
@@ -312,7 +312,7 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
                     except Exception as exc:
                         s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
                         state['failures'].append(proj_fld)
-                        return utils.update_state(state, 1)
+                        return putils.update_state(state, 1)
                 else:
                     try:
                         zip_archive.write(f'{elem_name}', arcname=f'{rel_name}')
@@ -326,15 +326,15 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
                     except Exception as exc:
                         s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
                         state['failures'].append(proj_fld)
-                        return utils.update_state(state, 1)
+                        return putils.update_state(state, 1)
         if success:
             s_print('arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}', uid, cnt=count)
             s_print('arch', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip', uid, cnt=count)
-            return utils.update_state(state, 0)
+            return putils.update_state(state, 0)
         else:
             s_print('arch', 'W', f'Incomplete archive: {dst_path}.zip', uid, cnt=count)
             state['failures'].append(proj_fld)
-            return utils.update_state(state, 1)
+            return putils.update_state(state, 1)
 
 
 def duplicate(proj_fld, dst, rule, options, uid, started, count):
@@ -351,7 +351,7 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
         state['step'] = 'copy'
         fld_count = file_count = symlink_count = 0
         exclusions = rule['actions']['exclude']
-        elem_list = utils.get_files(proj_fld, exclusions, options)
+        elem_list = putils.get_files(proj_fld, exclusions, options)
         if state['total'] == 1:
             count = ''
         os.mkdir(dst)
@@ -381,13 +381,13 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
             s_print('copy', 'I', f'Processing {dep_folder}...', uid, cnt=count)
             shutil.copytree(f'{proj_fld}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
             s_print('copy', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/', uid, cnt=count)
-            return utils.update_state(state, 0)
+            return putils.update_state(state, 0)
         else:
-            return utils.update_state(state, 0)
+            return putils.update_state(state, 0)
     except Exception as exc:
         s_print('copy', 'E', f'during the duplication {exc}', uid, cnt=count)
         state['failures'].append(proj_fld)
-        return utils.update_state(state, 1)
+        return putils.update_state(state, 1)
 
 
 @click.command(epilog=f'shlerp v{get_app_details()["proj_ver"]} - More details: https://github.com/synchronic777/shlerp-cli')
@@ -453,7 +453,7 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
     home = os.path.expanduser("~")
     os.chdir(f'{home}/.local/bin/shlerp/')
 
-    uid = utils.suid()
+    uid = putils.suid()
     state['uid'] = uid
     state['step'] = 'prep'
     if batch and not output:
@@ -494,7 +494,7 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
                     s_print('scan', 'W',
                             f'The folder {batch_elem} won\'t be processed as automatic rule detection failed',
                             uid)
-                    state.update(utils.update_state(state, 1))
+                    state.update(putils.update_state(state, 1))
                     state['ad_failures'].append(batch_elem)
                     state['total'] += 1
 
@@ -526,10 +526,10 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
         output = os.path.abspath(output)
         for backup in backup_sources:
             project_name = backup['proj_fld'].split('/')[-1]
-            backup['dst'] = f'{output}/{project_name}_{utils.get_dt()}'
+            backup['dst'] = f'{output}/{project_name}_{putils.get_dt()}'
     else:
         for backup in backup_sources:
-            backup['dst'] = f'{backup["proj_fld"]}_{utils.get_dt()}'
+            backup['dst'] = f'{backup["proj_fld"]}_{putils.get_dt()}'
 
     # At this point we should have the dst incorporated into the backup_job list
 

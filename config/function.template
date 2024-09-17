@@ -1,5 +1,6 @@
 shlerp() {
-    cmd="python3 ~/.local/bin/shlerp/main.py"
+    cmd="source ~/.local/bin/shlerp/venv/bin/activate && "
+    cmd+="python3 ~/.local/bin/shlerp/main.py"
     cmd+=" $@"
     if [[ "$@" != *"-p"* ]]; then
             cmd+=" -p `pwd`"
