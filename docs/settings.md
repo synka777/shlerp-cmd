@@ -19,7 +19,10 @@ So as I'm writting this doc, the full settings file looks like this:
         }
     },
     "rules": {
-        "history_limit": 2
+        "history_limit": {
+	        "frameworks": 2,
+	        "vanilla": 1
+        }
     }
 }
 ```
@@ -47,8 +50,9 @@ Please note, the ```"prune"``` mode is the one that is enabled by default by the
 Setting ```"enabled"``` to false will make shlerp us the "legacy" logging mode that is only useful if you want to keep track of your old backup jobs at all times.
 
 ###### 3/ The ```"rules"``` section
-only contains one parameter for now: ```"history_limit"```.
-It sets the maximum length of preferred rules to look evaluate before switching to the whole ruleset at the rule detection step.
+only contains the ```"history_limit"``` subsection.
+It has one setting for each type of rule we want to limit: ```frameworks```, and ```vanilla```.
+It sets the maximum number of rules to store into the history file before switching to the whole ruleset at the rule detection step.
 Please see the doc related to [matching rules](./rulesystem.md) if you need more details on this topic.
 
 [Back to main README](https://github.com/synchronic777/shlerp-cli)

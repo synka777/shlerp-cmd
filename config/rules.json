@@ -49,7 +49,7 @@
                     }
                 ],
                 "folders":[]
-        },
+            },
             "actions":{
                 "before":[],
                 "after":[],
@@ -82,7 +82,7 @@
                         "weight":2
                     }
                 ]
-        },
+            },
             "actions":{
                 "before":[],
                 "after":[],
@@ -96,64 +96,64 @@
     ],
     "vanilla": [
         {
-        "name":"Python",
-        "detect":{
-            "extensions":[
-                {
-                    "names":["*.py"],
-                    "weight":0.5
+            "name":"Python",
+            "detect":{
+                "extensions":[
+                    {
+                        "names":["*.py"],
+                        "weight":0.5
+                    }
+                ]
+            },
+            "actions":{
+                "before":[],
+                "after":[],
+                "exclude":{
+                    "files":[],
+                    "folders":["venv", "__pycache__"],
+                    "dep_folder": null
                 }
-            ]
+            }
         },
-        "actions":{
-            "before":[],
-            "after":[],
-            "exclude":{
-                "files":[],
-                "folders":["venv", "__pycache__"],
-                "dep_folder": null
+        {
+            "name":"Javascript",
+            "detect":{
+                "extensions":[
+                    {
+                        "names":["*.js", "*.ts", "*.jsx"],
+                        "weight":0.5
+                    }
+                ]
+            },
+            "actions":{
+                "before":[],
+                "after":[],
+                "exclude":{
+                    "files":["out.log", "karma.conf.js"],
+                    "folders":["buildprep"],
+                    "dep_folder": "node_modules"
+                }
+            }
+        },
+        {
+            "name":"Java",
+            "detect":{
+                "extensions":[
+                    {
+                        "names":["*.class", "*.java", "*.jar"],
+                        "weight":0.5
+                    }
+                ]
+            },
+            "actions":{
+                "before":[],
+                "after":[],
+                "exclude":{
+                    "files":[],
+                    "folders":[],
+                    "dep_folder": null
+                }
             }
         }
-    },
-    {
-        "name":"Javascript",
-        "detect":{
-            "extensions":[
-                {
-                    "names":["*.js", "*.ts", "*.jsx"],
-                    "weight":0.5
-                }
-            ]
-        },
-        "actions":{
-            "before":[],
-            "after":[],
-            "exclude":{
-                "files":["out.log", "karma.conf.js"],
-                "folders":["buildprep"],
-                "dep_folder": "node_modules"
-            }
-        }
-    },
-    {
-        "name":"Java",
-        "detect":{
-            "extensions":[
-                {
-                    "names":["*.class", "*.java", "*.jar"],
-                    "weight":0.5
-                }
-            ]
-        },
-        "actions":{
-            "before":[],
-            "after":[],
-            "exclude":{
-                "files":[],
-                "folders":[],
-                "dep_folder": null
-            }
-        }
-    }
     ]
 }

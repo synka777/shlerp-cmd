@@ -39,8 +39,7 @@ state = {
 def auto_detect(proj_fld, uid):
     v_leads = []
     fw_leads = []
-    recent_rules = {'frameworks': [], 'vanilla': []}
-    remaining_rules = {'frameworks': [], 'vanilla': []}
+    recent_rules = remaining_rules = {'frameworks': [], 'vanilla': []}
     history_names = ('frameworks', 'vanilla')
     framework_matched = False
     threshold_reached = False
@@ -213,7 +212,7 @@ def auto_detect(proj_fld, uid):
         framework = True if fw_leads else False
         elected_rule = v_leads[0] if v_leads else fw_leads[0] if fw_leads else None
         if elected_rule:
-            # Check if the history in the tmp file can be updated before breaking out of the loop
+            # Check if the history in the tmp file can be updated before exiting the function
             if not utils.history_updated(elected_rule, tmp_file, framework):
                 s_print('scan', 'W', 'A problem occurred when trying to write in rules_history.json', uid)
             return elected_rule
@@ -485,9 +484,8 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
                     if not batch_elem.startswith('.'):
                         s_print('scan', 'I', f'Scanning {batch_elem}', uid)
                         elem_rule = auto_detect(batch_elem, uid)
-                        print('ELECTED', elem_rule['name'] if elem_rule else None)
-                        exit()
                 if elem_rule:
+                    s_print('scan', 'I', f'Matching rule: {elem_rule["name"]}', uid)
                     backup_sources.append({
                         'proj_fld': batch_elem,
                         'rule': elem_rule
@@ -542,12 +540,6 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
         count = ''
         if show_state:
             count = f'{state["done"] + state["failed"]}/{state["total"]}'
-        # payload = {
-        #     'source': backup['proj_fld'], 'dest': backup['dst'],
-        #     'rule': backup['rule'], 'options': options,
-        #     'uid': uid, 'start_time': start_time,
-        #     'state': state
-        # }
         if batch:
             s_print('arch' if archive else 'copy', 'I', f'Processing: {backup["proj_fld"]}', uid, cnt=count)
         if archive:
@@ -557,8 +549,6 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
                 backup['rule'], options,
                 uid, start_time, count
             )
-            # state = make_archive(payload)
-
         else:
             # Else if we don't want an archive we will do a copy of the project instead
             state = duplicate(
