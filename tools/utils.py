@@ -14,12 +14,8 @@ setup_fld = None
 
 # Getter functions
 
-def get_app_details():
-    global app_details
+def get_setup_fld():
     global setup_fld
-
-    # First we set the global variable setup_fld that will be used in the entire project
-    # This function is called by the "click" module at the very beginning.
     if not setup_fld:
         # Resolve the absolute path to the current script
         script_path = os.path.abspath(__file__)
@@ -28,10 +24,12 @@ def get_app_details():
         # Get the parent directory of the script
         parent_dir = os.path.dirname(script_dir)
         setup_fld = parent_dir
+    return setup_fld
 
-    # Then we can retrieve the app details
+def get_app_details():
+    global app_details
     if len(app_details) == 0:
-        with open(f'{setup_fld}/config/app_details.json', 'r') as read_details:
+        with open(f'{get_setup_fld()}/config/app_details.json', 'r') as read_details:
             for key, val in json.load(read_details).items():
                 app_details[key] = val
     return app_details
@@ -40,7 +38,7 @@ def get_app_details():
 def get_settings():
     global settings
     if len(settings) == 0:
-        with open(f'{setup_fld}/config/settings.json', 'r') as read_settings:
+        with open(f'{get_setup_fld()}/config/settings.json', 'r') as read_settings:
             for key, val in json.load(read_settings).items():
                 settings[key] = val
     return settings
