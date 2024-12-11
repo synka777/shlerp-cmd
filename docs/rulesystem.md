@@ -1,4 +1,4 @@
-# shlerp-cli
+# shlerp-cmd
 [![](https://img.shields.io/static/v1?label=Status&message=Ongoing&color=green)](#) [![](https://img.shields.io/static/v1?label=Python&message=v3.9&color=blue)](#) [![](https://img.shields.io/static/v1?label=Click&message=v8.1.3&color=purple)](#)
 ___
 
@@ -154,4 +154,4 @@ Once we know which rule is the one that matches the best the language of the pro
 
 ... and that's it. New detection rules can be added into the rules.json file, you can create new ones for any language or framework you want.
 
-[Back to main README](https://github.com/synchronic777/shlerp-cli)
+[Back to main README](https://github.com/synka777/shlerp-cmd)

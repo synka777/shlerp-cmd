@@ -1,4 +1,4 @@
-# shlerp-cli
+# shlerp-cmd
 [![](https://img.shields.io/static/v1?label=Status&message=Ongoing&color=green)](#) [![](https://img.shields.io/static/v1?label=Python&message=v3.9&color=blue)](#) [![](https://img.shields.io/static/v1?label=Click&message=v8.1.3&color=purple)](#)
 ___
 
@@ -52,4 +52,4 @@ It has one setting for each type of rule we want to limit: ```frameworks```, and
 It sets the maximum number of rules to store into the history file before switching to the whole ruleset at the rule detection step.
 Please see the doc related to [matching rules](./rulesystem.md) if you need more details on this topic.
 
-[Back to main README](https://github.com/synchronic777/shlerp-cli)
+[Back to main README](https://github.com/synka777/shlerp-cmd)

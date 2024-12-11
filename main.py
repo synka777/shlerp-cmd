@@ -390,7 +390,7 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
         return putils.update_state(state, 1)
 
 
-@click.command(epilog=f'shlerp v{get_app_details()["proj_ver"]} - More details: https://github.com/synchronic777/shlerp-cmd')
+@click.command(epilog=f'shlerp v{get_app_details()["proj_ver"]} - More details: https://github.com/synka777/shlerp-cmd')
 @click.option('-p', '--path', type=click.Path(),
               help='The path of the project we want to backup.')
 @click.option('-o', '--output', type=click.Path(),

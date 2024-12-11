@@ -27,7 +27,7 @@ echo "$SHELL"
 ```
 Position yourself into the folder you want to install shlerp into, and then install it:
 ```
-git clone https://github.com/synchronic777/shlerp-cmd && cd shlerp-cmd && sudo -E  python3 setup.py
+git clone https://github.com/synka777/shlerp-cmd.git && cd shlerp-cmd && sudo -E  python3 setup.py
 ```
 After this, restart your terminal and you're all set!
 
