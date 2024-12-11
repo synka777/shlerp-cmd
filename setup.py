@@ -1,10 +1,9 @@
 import os
 from os import environ
-from tools.utils import log, get_dt, req_installed, get_settings
+from tools.utils import log, get_dt, req_installed
 from os.path import join, exists
 import platform
 import venv
-
 
 def setup_print(step, lvl, message, *args):
     """Standardizes the output format
@@ -28,7 +27,6 @@ def setup_print(step, lvl, message, *args):
 def setup():
     home = os.path.expanduser("~")
     setup_folder = os.getcwd()
-
     current_os = platform.uname().system
 
     # Determine on which OS the script is running
@@ -52,7 +50,7 @@ def setup():
                         write = False
                         setup_print('setup', 'I', '[1/2] OK: Alias function already installed')
                 if write:
-                    write_rc.write(f'source {setup_folder}config/function.template')
+                    write_rc.write(f'source {setup_folder}/config/function.template')
                     setup_print('setup', 'I', f'[1/2] OK: Alias added to {rc_file}')
 
         def check_deps(first_try):

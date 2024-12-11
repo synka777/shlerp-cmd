@@ -7,7 +7,6 @@ ___
 So as I'm writting this doc, the full settings file looks like this:
 ```
 {
-    "rel_setup_path": ".local/bin",
     "rel_logs_path": ".local/logs",
     "logging": {
         "prune": {
@@ -30,8 +29,6 @@ So as I'm writting this doc, the full settings file looks like this:
 Let's dive into what these parameters do.
 
 ###### 1/ First, we have:
-
-```"rel_setup_path"```, that is the setup path where the project will be installed by the setup script.
 
 ```"rel_logs_path```, which is used by the logging function that is defined in /tools/utils.py. It can be edited 
 to specify where you want to store shlerp logs.

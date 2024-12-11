@@ -1,4 +1,4 @@
-# shlerp-cli
+# shlerp-cmd
 [![](https://img.shields.io/static/v1?label=Status&message=Ongoing&color=green)](#) [![](https://img.shields.io/static/v1?label=Python&message=v3.9&color=blue)](#) [![](https://img.shields.io/static/v1?label=Click&message=v8.1.3&color=purple)](#)
 ___
 
@@ -25,9 +25,9 @@ To install the CLI on your system, open a terminal and make sure you're using ba
 ```
 echo "$SHELL"
 ```
-Then you just have to use the setup.py file included in this project:
+Position yourself into the folder you want to install shlerp into, and then install it:
 ```
-python ./setup.py
+git clone https://github.com/synchronic777/shlerp-cmd && cd shlerp-cmd && sudo -E  python3 setup.py
 ```
 After this, restart your terminal and you're all set!
 

@@ -10,26 +10,40 @@ import json
 
 settings = {}
 app_details = {}
-
+setup_fld = None
 
 # Getter functions
+
+def get_app_details():
+    global app_details
+    global setup_fld
+
+    # First we set the global variable setup_fld that will be used in the entire project
+    # This function is called by the "click" module at the very beginning.
+    if not setup_fld:
+        # Resolve the absolute path to the current script
+        script_path = os.path.abspath(__file__)
+        # Get the directory containing this script
+        script_dir = os.path.dirname(script_path)
+        # Get the parent directory of the script
+        parent_dir = os.path.dirname(script_dir)
+        setup_fld = parent_dir
+
+    # Then we can retrieve the app details
+    if len(app_details) == 0:
+        with open(f'{setup_fld}/config/app_details.json', 'r') as read_details:
+            for key, val in json.load(read_details).items():
+                app_details[key] = val
+    return app_details
+
 
 def get_settings():
     global settings
     if len(settings) == 0:
-        with open(f'{os.getcwd()}/config/settings.json', 'r') as read_settings:
+        with open(f'{setup_fld}/config/settings.json', 'r') as read_settings:
             for key, val in json.load(read_settings).items():
                 settings[key] = val
     return settings
-
-
-def get_app_details():
-    global app_details
-    if len(app_details) == 0:
-        with open(f'{os.getcwd()}/config/app_details.json', 'r') as read_details:
-            for key, val in json.load(read_details).items():
-                app_details[key] = val
-    return app_details
 
 
 def get_dt():
@@ -43,6 +57,7 @@ def get_dt():
         .replace(':', '')
     )
 
+# Utilities that do not require pip installations
 
 def iterate_log_name(log_name):
     name_chunk = log_name.split('.')[0]
@@ -157,20 +172,34 @@ def req_installed(setup_folder):
     :param setup_folder: str representing the setup folder
     :return: True if it worked, else False
     """
+    #try:
+    venv_bin = f'{setup_folder}/venv/bin/'
+    pip_path = f'{venv_bin}pip'
     try:
-        venv_bin = f'{setup_folder}venv/bin/'
-        pip_path = f'{venv_bin}pip'
-        if not exists(pip_path):
-            if exists(f'{venv_bin}pip3'):
-                pip_path = f'{venv_bin}pip3'
-            else:
-                return False
-        subprocess.check_call([
-            pip_path,
-            'install', '-r',
-            f'{os.getcwd()}/requirements.txt'
-        ])
+        # Use Popen with stdout and stderr as PIPE for real-time output
+        process = subprocess.Popen(
+            [pip_path, 'install', '-r', f'{setup_fld}/requirements.txt'],
+            stdout=subprocess.PIPE,  # Capture stdout
+            stderr=subprocess.PIPE,  # Capture stderr
+            text=True                # Decode output as text (not bytes)
+        )
 
-        return True
-    except subprocess.CalledProcessError:
+        # Read output line by line in real-time
+        # for line in process.stdout:
+        #     print(line, end="")  # Print each line as it arrives
+
+        # Wait for process to complete
+        process.wait()
+
+        # Check return code
+        if process.returncode == 0:
+            print("Dependencies installed successfully.")
+            return True
+        else:
+            print("Error during installation.")
+            print("stderr:", process.stderr.read())
+            return False
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
         return False

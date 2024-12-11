@@ -1,9 +1,18 @@
 shlerp() {
-    cmd="source ~/.local/bin/shlerp/venv/bin/activate && "
-    cmd+="python3 ~/.local/bin/shlerp/main.py"
+    # Determine the directory of the script itself
+    script_dir="$(cd "$(dirname "${(%):-%x}")" && pwd)"
+    setup_dir="$(cd "$script_dir/.." && pwd)"  # Move up one level to the project root
+
+    # Construct the command
+    cmd="source ${setup_dir}/venv/bin/activate && "  # Ensure proper path
+    cmd+="python3 ${setup_dir}/main.py"             # Use setup_dir correctly
     cmd+=" $@"
+    
+    # Add the current working directory as a parameter if '-p' is not specified
     if [[ "$@" != *"-p"* ]]; then
-            cmd+=" -p `pwd`"
+        cmd+=" -p $(pwd)"
     fi
+
+    # Execute the constructed command
     eval $cmd
 }
