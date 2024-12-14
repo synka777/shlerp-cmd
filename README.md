@@ -25,9 +25,9 @@ To install the CLI on your system, open a terminal and make sure you're using ba
 ```
 echo "$SHELL"
 ```
-Position yourself into the folder you want to install shlerp into, and then install it:
+Position yourself into the folder you want to install shlerp into, and then run:
 ```
-git clone https://github.com/synka777/shlerp-cmd.git && cd shlerp-cmd && sudo -E  python3 setup.py
+git clone https://github.com/synka777/shlerp-cmd.git && cd shlerp-cmd && python3 setup.py
 ```
 After this, restart your terminal and you're all set!
 

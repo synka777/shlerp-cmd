@@ -81,8 +81,7 @@ def log(msg, log_type):
     filename = f'{log_type}.log'
     log_file = None
 
-    if not exists(log_fld):
-        os.makedirs(log_fld)
+    os.makedirs(log_fld, mode=0o775, exist_ok=True)
 
     log_files = [
         filename for filename in os.listdir(log_fld)
