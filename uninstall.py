@@ -2,16 +2,14 @@ import os
 from os import environ
 from os.path import exists
 from tools.pip.putils import s_print
-from tools.utils import get_settings
+from tools.utils import get_setup_fld
 import sys
 import subprocess
 
 
 def uninstall():
-    settings = get_settings()
     home = os.path.expanduser("~")
-    abs_setup_path = f'{home}/{settings["rel_setup_path"]}'
-    setup_folder = f'{abs_setup_path}/shlerp/'
+    setup_folder = get_setup_fld()
 
     shell = environ['SHELL']
     shell_string = shell.split('/')[2] if 'bash' in shell or 'zsh' in shell else None
@@ -23,8 +21,9 @@ def uninstall():
         with open(rc_file_path, 'r') as read_rc:
             double_check = True
             read_rc = read_rc.read()
-            tmp_rc_path = f'{setup_folder}.rc_file'
-            source_line = f'source {setup_folder}config/function.template'
+            tmp_rc_path = f'{setup_folder}/.rc_file'
+            source_line = f'source {setup_folder}/config/function.template'
+            print(source_line)
             if source_line in read_rc:
                 cleaned_rc = read_rc.replace(source_line, '')
                 with open(tmp_rc_path, 'w') as write_tmp_rc:

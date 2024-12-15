@@ -190,11 +190,10 @@ def req_installed(setup_folder):
 
         # Check return code
         if process.returncode == 0:
-            print("Dependencies installed successfully.")
             return True
         else:
-            print("Error during installation.")
-            print("stderr:", process.stderr.read())
+            # print("Error during installation.")
+            # print("stderr:", process.stderr.read())
             return False
 
     except Exception as e:

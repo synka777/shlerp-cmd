@@ -1,12 +1,12 @@
 import os
 from os import environ
-from tools.utils import log, get_dt, req_installed
+from tools.utils import log, get_dt, req_installed, get_setup_fld
 from os.path import join, exists
 import subprocess
 import platform
 import venv
 import pwd
-
+import stat
 
 def setup_print(step, lvl, message):
     """Standardizes the output format
@@ -42,7 +42,7 @@ def get_file_owner(file_path):
 
 def setup():
     home = os.path.expanduser("~")
-    setup_folder = os.getcwd()
+    setup_folder = get_setup_fld()
     current_os = platform.uname().system
 
     # Determine on which OS the script is running
@@ -60,29 +60,55 @@ def setup():
                 # If the owner is root, add write permissions to the members of the same group as root
                 file_owner = get_file_owner(rc_file_abs)
                 current_user = pwd.getpwuid(os.geteuid()).pw_name
+                # Get file's metadata
+                file_stat = os.stat(rc_file_abs)
+                # Extract permission bits
+                permissions = stat.S_IMODE(file_stat.st_mode)
+                group_write = bool(permissions & stat.S_IWGRP)
 
                 if (file_owner == 'root' or file_owner != current_user):
-                    setup_print('setup', 'I', f'[1/2] Please enter password to edit {rc_file_abs}')
-                    chmod_cmd = subprocess.Popen(['sudo', 'chmod', 'g+w', rc_file_abs])
-                    chmod_cmd.wait()
+                    # Check if group is authorized to write on the file
+                    if not group_write:
+                        setup_print('setup', 'I', f'[1/2] Please enter password to edit {rc_file_abs}')
+                        chmod_cmd = subprocess.Popen(['sudo', 'chmod', 'g+w', rc_file_abs])
+                        chmod_cmd.wait()
 
-                    if chmod_cmd.returncode != 0:
-                        setup_print('setup', 'E', 'ERROR: Oops! Something happened, abort mission')
-                        print(chmod_cmd.stderr.read())
-                        exit(0)
+                        if chmod_cmd.returncode != 0:
+                            setup_print('setup', 'E', 'ERROR: Oops! Something happened, abort mission')
+                            print(chmod_cmd.stderr.read())
+                            exit(0)
 
                 with open(rc_file_abs, 'r') as read_rc:
-                    read_rc = read_rc.read()
+                    write = True
+                    update = False
+                    read_rc = read_rc.readlines()
+                    source_line = f'source {setup_folder}/config/function.template'
+                    filtered_lines = []
+                    if read_rc:
+                        for rc_line in read_rc:
+                            # If we find a line that is already sourcing shlerp at any location
+                            if rc_line.startswith('source') and ('shlerp' and '/function.template') in rc_line:
+                                # Compare the location that's already sourced and the location from which we're running the new setup
+                                # If we're running the setup from the same location as the one that's already sourced, do nothing
+                                if rc_line == source_line:
+                                    write = False
+                                    setup_print('setup', 'I', '[1/2] OK: Alias function already installed')
+                                    break
+                                else:
+                                    if not update:
+                                        update = True
+                            else:
+                                filtered_lines.append(rc_line)
 
-            with open(rc_file_abs, 'a') as write_rc:
-                write = True
-                if read_rc:
-                    if 'shlerp' in read_rc:
-                        write = False
-                        setup_print('setup', 'I', '[1/2] OK: Alias function already installed')
-                if write:
-                    write_rc.write(f'source {setup_folder}/config/function.template')
-                    setup_print('setup', 'I', f'[1/2] OK: Alias added to {rc_file}')
+                        if write:
+                            with open(rc_file_abs, 'w') as write_rc:
+                                # Rewrite the entire file but replace the old sourced line by the new one
+                                if update:
+                                    filtered_lines.append(source_line)
+
+                                for filtered_line in filtered_lines:
+                                    write_rc.write(filtered_line)
+                                setup_print('setup', 'I', f'[1/2] OK: Alias added to {rc_file}')
 
         def check_deps(first_try):
             word = 'successfully'
