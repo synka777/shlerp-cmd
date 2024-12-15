@@ -10,21 +10,18 @@ import json
 
 settings = {}
 app_details = {}
-setup_fld = None
 
 # Getter functions
 
 def get_setup_fld():
-    global setup_fld
-    if not setup_fld:
         # Resolve the absolute path to the current script
         script_path = os.path.abspath(__file__)
         # Get the directory containing this script
         script_dir = os.path.dirname(script_path)
         # Get the parent directory of the script
         parent_dir = os.path.dirname(script_dir)
-        setup_fld = parent_dir
-    return setup_fld
+        return parent_dir
+
 
 def get_app_details():
     global app_details

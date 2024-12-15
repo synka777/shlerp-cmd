@@ -5,7 +5,7 @@ Released under the GNU Affero General Public License v3.0
 """
 import click
 from click import echo
-from tools.utils import get_app_details, setup_fld
+from tools.utils import get_app_details, get_setup_fld
 from tools.pip.putils import s_print
 from tools.pip import putils
 from os.path import exists
@@ -129,14 +129,14 @@ def auto_detect(proj_fld, uid):
     # Step 1: Get the rules from the config/temporary file
 
     try:
-        with open(f'{setup_fld}/config/rules.json', 'r') as read_file:
+        with open(f'{get_setup_fld()}/config/rules.json', 'r') as read_file:
             rules = json.load(read_file)
     except FileNotFoundError:
         s_print('scan', 'E', 'rules.json not found', uid)
         exit(1)
 
     try:
-        with open(f'{setup_fld}/tmp/rules_history.json', 'r') as read_tmp:
+        with open(f'{get_setup_fld()}/tmp/rules_history.json', 'r') as read_tmp:
             tmp_file = json.load(read_tmp)
         # If the rules history hasn't been checked yet, only keep the rules that are mentioned in the tmp file
         for hist in history_names:
@@ -149,7 +149,7 @@ def auto_detect(proj_fld, uid):
     except FileNotFoundError:
         s_print('scan', 'I', 'Temp file not found, will use the whole ruleset instead', uid)
         tmp_file = {'frameworks': [], 'vanilla': []}
-        tmp_fld = f'{setup_fld}/tmp'
+        tmp_fld = f'{get_setup_fld()}/tmp'
         if not exists(tmp_fld):
             os.mkdir(tmp_fld)
         with open(f'{tmp_fld}/rules_history.json', 'w') as write_tmp:
@@ -500,7 +500,7 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
         get_sources()
     else:
         # If a --rule has been provided by the user, check if it is valid
-        with open(f'{setup_fld}/rules.json', 'r') as read_file:
+        with open(f'{get_setup_fld()}/rules.json', 'r') as read_file:
             rules = json.load(read_file)
             match = False
             for stored_rule in rules:

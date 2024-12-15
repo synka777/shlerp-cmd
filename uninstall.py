@@ -23,7 +23,6 @@ def uninstall():
             read_rc = read_rc.read()
             tmp_rc_path = f'{setup_folder}/.rc_file'
             source_line = f'source {setup_folder}/config/function.template'
-            print(source_line)
             if source_line in read_rc:
                 cleaned_rc = read_rc.replace(source_line, '')
                 with open(tmp_rc_path, 'w') as write_tmp_rc:
