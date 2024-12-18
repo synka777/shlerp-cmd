@@ -172,15 +172,15 @@ def req_installed(setup_folder):
     try:
         # Use Popen with stdout and stderr as PIPE for real-time output
         process = subprocess.Popen(
-            [pip_path, 'install', '-r', f'{setup_fld}/requirements.txt'],
+            [pip_path, 'install', '-r', f'{get_setup_fld()}/requirements.txt'],
             stdout=subprocess.PIPE,  # Capture stdout
             stderr=subprocess.PIPE,  # Capture stderr
             text=True                # Decode output as text (not bytes)
         )
 
         # Read output line by line in real-time
-        # for line in process.stdout:
-        #     print(line, end="")  # Print each line as it arrives
+        for line in process.stdout:
+            print(line, end="")  # Print each line as it arrives
 
         # Wait for process to complete
         process.wait()

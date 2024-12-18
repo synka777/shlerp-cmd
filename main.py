@@ -392,29 +392,29 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
 
 @click.command(epilog=f'shlerp v{get_app_details()["proj_ver"]} - More details: https://github.com/synka777/shlerp-cmd')
 @click.option('-p', '--path', type=click.Path(),
-              help='The path of the project we want to backup.')
+              help='The path of the project we want to backup. If not provided the current working directory will be backed up')
 @click.option('-o', '--output', type=click.Path(),
               help='The location where we want to store the backup')
 @click.option('-r', '--rule',
               help='Manually specify a rule name if you want to skip the language detection process')
 @click.option('-d', '--dependencies', default=False,
-              help='Includes the folders marked as dependency folders in the duplication. Only works when using -a',
+              help='Include the folders marked as dependency folders in the duplication. Only works when using -a',
               is_flag=True)
 @click.option('-ne', '--noexcl', default=False,
-              help='Disables the exclusion system inherent to each rule',
+              help='Disable the exclusion system inherent to each rule',
               is_flag=True)
 @click.option('-ng', '--nogit', default=False,
-              help='Excludes git data from the backup',
+              help='Exclude git data from the backup',
               is_flag=True)
 @click.option('-kh', '--keephidden', default=False,
-              help='Excludes hidden files and folders from the backup but keeps git data',
+              help='Include hidden files and folders in the backup (they are excluded by default, except for git-related ones)',
               is_flag=True)
 @click.option('-b', '--batch', default=False,
               help='This option will consider all the sub-folders from the cwd as repositories and process it one by one'
                    'This is especially useful to backup all your projects on an another location.',
               is_flag=True)
 @click.option('-a', '--archive', default=False,
-              help='Archives the project folder instead of making a copy of it',
+              help='Archive the project folder instead of making a copy of it',
               is_flag=True)
 def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, archive):
     """Dev projects backups made easy"""

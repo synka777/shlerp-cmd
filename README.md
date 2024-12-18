@@ -1,5 +1,9 @@
+<div align="center">
+  <img src="resources/rocket_shlerp.png" alt="shlerp logo" width="350">
+</div>
+
 # shlerp-cmd
-[![](https://img.shields.io/static/v1?label=Status&message=Ongoing&color=green)](#) [![](https://img.shields.io/static/v1?label=Python&message=v3.9&color=blue)](#) [![](https://img.shields.io/static/v1?label=Click&message=v8.1.3&color=purple)](#)
+[![](https://img.shields.io/static/v1?label=Status&message=Completed&color=lightgreen)](#) [![](https://img.shields.io/static/v1?label=Python&message=v3.9%2B&color=blue)](#) [![](https://img.shields.io/static/v1?label=Click&message=v8.1.7&color=purple)](#)
 ___
 
 Normally if you need to provide a copy of the project you're currently working on to one of your colleagues, you would have to remove the dependencies folder first, do the archive using your computer's GUI and then reinstall the dependencies to resume working on your project. Tiresome, right?
@@ -14,9 +18,9 @@ Normally if you need to provide a copy of the project you're currently working o
 
 ### Requirements:
 - Python 3 (highly recommended)
-- Bash or Zsh
+- Bash or Zsh (Windows shells & file system are not supported)
   
-Note: if you're using a shell other than bash or zsh, you'll have to find a way to make the function in function.template available throughout your whole system.
+Note: if you're using another UNIX/Linux shell than bash or zsh, you'll have to find a way to make the function in function.template available throughout your whole system.
 
 
 ## 🚀 Quickstart
@@ -54,12 +58,12 @@ shlerp -ng -a / shlerp --nogit --archive
 ## 🛠 Full option list
 | Option             |                                                                                                                                                                                     |
 |--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| -p, --path PATH    | The path of the project we want to backup.                                                                                                                                          |
+| -p, --path PATH    | The path of the project we want to backup.  If not provided the current working directory will be backed up                                                                                                                                          |
 | -o, --output PATH  | The location where we want to store the backup                                                                                                                                      |
 | -r, --rule TEXT    | Manually specify a rule name if you want to skip the language detection process                                                                                                     |
-| -d, --dependencies | Includes the folders marked as dependency folders in the duplication. Only works when using -a                                                                                      |
-| -ne, --noexcl      | Disables the exclusion system inherent to each rule                                                                                                                                 |
-| -ng, --nogit       | Excludes git data from the backup                                                                                                                                                   |
-| -kh, --keephidden  | Excludes hidden files and folders from the backup but keeps git data                                                                                                                |
+| -d, --dependencies | Include the folders marked as dependency folders in the duplication. Only works when using -a                                                                                      |
+| -ne, --noexcl      | Disable the exclusion system inherent to each rule                                                                                                                                 |
+| -ng, --nogit       | Exclude git data from the backup                                                                                                                                                   |
+| -kh, --keephidden  | Include hidden files and folders in the backup (they are excluded by default, except for git-related ones)                                                                                                               |
 | -b, --batch        | This option will consider all the sub-folders from the cwd as repositories and process it one by one. This is especially useful to backup all your projects on an another location. |
 | -a, --archive      | Archives the project folder instead of making a copy of it                                                                                                                          |

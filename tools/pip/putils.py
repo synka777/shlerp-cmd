@@ -1,4 +1,4 @@
-from tools.utils import log, get_dt, get_settings
+from tools.utils import log, get_dt, get_settings, get_setup_fld
 from uuid import uuid4
 from os.path import exists
 from click import echo
@@ -223,15 +223,15 @@ def history_updated(rule, history_file, framework):
                 history.pop()
             history.insert(0, current_lang)
 
-        with open(f'{os.getcwd()}/tmp/rules_history.json', 'w') as write_tmp:
+        with open(f'{get_setup_fld()}/tmp/rules_history.json', 'w') as write_tmp:
             write_tmp.write(json.dumps(history_file, indent=4))
             return True
     except (FileNotFoundError, ValueError):
-        with open(f'{os.getcwd()}/tmp/rules_history.json', 'a') as write_tmp:
+        with open(f'{get_setup_fld()}/tmp/rules_history.json', 'a') as write_tmp:
             write_tmp.write(json.dumps({
                 "rules_history": [current_lang]
             }))
-            if exists(f'{os.getcwd()}/tmp/rules_history.json'):
+            if exists(f'{get_setup_fld()}/tmp/rules_history.json'):
                 return True
     return False
 
