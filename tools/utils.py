@@ -1,10 +1,15 @@
 from datetime import datetime
 from os.path import exists
+from uuid import uuid4
+import random
 import subprocess
 import re
 import shutil
 import os
 import json
+import glob
+import json
+
 
 # Cached data
 
@@ -54,17 +59,27 @@ def get_dt():
 
 # Utilities that do not require pip installations
 
+def suid():
+    """Generates a short uid
+    :return: A unique identifier with a fixed length of 6 characters
+    """
+    chunks = str(uuid4()).split('-')
+    count = 0
+    uid = ''
+    while count < 3:
+        chunk = random.choice(chunks)
+        uid = f'{uid}{chunk[:2]}'
+        chunks.remove(chunk)
+        count += 1
+    return uid
 
-def get_file_size(archive_path):
-    try:
-        # Get the file size in bytes
-        file_size = os.path.getsize(archive_path)
-        # Convert the file size to megabytes
-        file_size_mb = file_size / (1024 * 1024)
-        return file_size_mb
-    except OSError as e:
-        # Handle the error if the file does not exist or is inaccessible
-        return {"error": str(e)}
+
+def update_state(state, status, path):
+    if status == 0:
+        state['done'].append(path)
+    elif status == 1:
+        state['failed'].append(path)
+    return state
 
 
 def iterate_log_name(log_name):
@@ -172,6 +187,161 @@ def log(msg, log_type):
 
     with open(f'{log_fld}/{log_file}', 'a+') as write_log:
         write_log.write(f'{msg}\n')
+
+
+def iglob_hidden(*args, **kwargs):
+    """A glob.iglob that include dot files and hidden files"""
+    """The credits goes to the user polyvertex for this function"""
+    old_ishidden = glob._ishidden
+    glob._ishidden = lambda x: False
+    try:
+        yield from glob.iglob(*args, **kwargs)
+    finally:
+        glob._ishidden = old_ishidden
+
+
+def get_files(path, exclusions, options):
+    """Lists the files contained in a given folder, without symlinks
+    :param path: String referring to the path that needs it's content to be listed
+    :param exclusions: Dictionary containing the files and folders we want to exclude
+    :param options: dictionary/object containing exclusion options
+    :return: A list of files, without any possible node_modules folder
+    """
+    if options['nogit']:
+        exclusions['folders'].append('.git')
+        exclusions['files'].append('.gitignore')
+    if options['noexcl']:
+        return [
+            file for file in os.listdir(path)
+            if (exclusions['dep_folder'] and file != exclusions['dep_folder'])
+                or not exclusions['dep_folder']
+        ]
+    elem_list = []
+    dep_fld = exclusions['dep_folder']
+    for elem in os.listdir(path):
+        excl_matched = False
+        if (
+                not options['keephidden'] and
+                elem.startswith('.') and
+                not (
+                        elem == '.git' or
+                        elem == '.gitignore'
+                )
+        ):
+            excl_matched = True
+        if os.path.isdir(f'{path}/{elem}'):
+            if exclusions['folders']:
+                for fld_excl in exclusions['folders']:
+                    if fld_excl in elem:
+                        excl_matched = True
+                        break
+            if dep_fld and dep_fld in elem:
+                excl_matched = True
+            if not excl_matched:
+                elem_list.append(elem)
+        else:
+            if exclusions['files']:
+                for file_excl in exclusions['files']:
+                    if file_excl in elem:
+                        excl_matched = True
+                        break
+            if dep_fld and dep_fld in elem:
+                excl_matched = True
+            if not excl_matched:
+                elem_list.append(elem)
+    return elem_list
+
+
+def elect(leads):
+    """Determines which language pattern(s) has the heavier weight
+    :param leads: List of objects representing potential winners
+    :return: The object(s) that has the heaviest weight
+    """
+    winner = []
+    if leads:
+        leads.sort(key=lambda x: x['total'], reverse=True)
+        for lead in leads:
+            if not winner:
+                winner.append(lead)
+            else:
+                if lead['total'] == winner[0]['total']:
+                    winner.append(lead)
+    return None if len(winner) == 0 else winner
+
+
+def crawl_for_weight(proj_fld, rules):
+    """Crawl the project to find files matching the extensions we provide to this function
+    :param proj_fld: text, the folder we want to process
+    :param rules: object list containing languages names, extensions to crawl and weights
+    :return: an updated list with some more weight (hopefully)
+    """
+    for rule in rules:
+        if 'total' not in rule.keys():
+            rule['total'] = 0
+        for ext_elem in rule['detect']['extensions']:
+            for ext in ext_elem['names']:
+                for _ in glob.iglob(f'{proj_fld}/**/{ext}', recursive=True):
+                    rule['total'] += ext_elem['weight']
+    return rules
+
+
+def enforce_limit(history_file, settings):
+    """Shortens the history if it is too long compared to history_limit parameters.
+    Can happen if these parameters have been reduced between two shlerp script executions
+    :param history_file: Temporary file containing the history lists
+    :param settings: shlerp settings
+    """
+    history_limits = settings['rules']['history_limit']
+    rule_types = history_limits.keys()
+    # Will cut the history if the length is superior to what is set up in the settings,
+    # rule_types being 'frameworks' and 'vanilla'
+    for rule_type in rule_types:
+        if len(history_file[rule_type]) > history_limits[rule_type]:
+            history_file[rule_type] = history_file[rule_type][:history_limits[rule_type]]
+            with open('tmp/rules_history.json', 'w') as write_tmp:
+                # Updates the history according to the rule type that has been elected
+                write_tmp.write(json.dumps(history_file, indent=4))
+
+
+def history_updated(rule, history_file, framework):
+    """Updates the history with a new rule
+    :param rule: List of dicts representing potential winners
+    :param history_file: Temporary file containing the history list
+    :param framework: Boolean that allows to tell the functon if the rule to add is vanilla or framework
+    :return: A boolean depending on the outcome of this function
+    """
+    current_lang = rule['name']
+    try:
+        settings = get_settings()
+        enforce_limit(history_file, settings)
+        history_limits = settings['rules']['history_limit']
+        rule_type = 'frameworks' if framework else 'vanilla'
+        history = history_file[rule_type]
+        history_limit = history_limits[rule_type]
+        # If the current language is in the history
+        if current_lang in history:
+            # But it's not the latest, get its position and remove it to add it back in first pos
+            if history.index(current_lang) != 0:
+                current_pos = history.index(current_lang)
+                history.pop(current_pos)
+                history.insert(0, current_lang)
+        else:
+            # If the current language isn't in the list, remove the oldest one if needed and then add it
+            if len(history) == history_limit:
+                history.pop()
+            history.insert(0, current_lang)
+
+        with open(f'{get_setup_fld()}/tmp/rules_history.json', 'w') as write_tmp:
+            write_tmp.write(json.dumps(history_file, indent=4))
+            return True
+    except (FileNotFoundError, ValueError):
+        with open(f'{get_setup_fld()}/tmp/rules_history.json', 'a') as write_tmp:
+            write_tmp.write(json.dumps({
+                "rules_history": [current_lang]
+            }))
+            if exists(f'{get_setup_fld()}/tmp/rules_history.json'):
+                return True
+    return False
 
 
 def req_installed(setup_folder):

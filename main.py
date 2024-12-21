@@ -4,7 +4,6 @@ All Rights Reserved.
 Released under the GNU Affero General Public License v3.0
 """
 import click
-from click import echo
 from tools.utils import get_app_details, get_setup_fld
 from tools.pip.putils import s_print, upload_archive
 from tools.pip import putils
@@ -103,14 +102,14 @@ def auto_detect(proj_fld, uid):
             # Then add the rule into the leads array if all of its criteria matched
             if _rule['total'] >= rule_threshold:
                 _fw_leads.append(_rule)
-        return putils.elect(_fw_leads)
+        return utils.elect(_fw_leads)
 
     def vanilla_processing(_rules):
         s_print('scan', 'I', 'Crawling...', uid)
-        leads = putils.crawl_for_weight(proj_fld, _rules['vanilla'])
+        leads = utils.crawl_for_weight(proj_fld, _rules['vanilla'])
         # If the weight of the rule that has the heaviest score is lighter than the threshold,
         # We empty the leads list
-        _elected_rule = putils.elect(leads)
+        _elected_rule = utils.elect(leads)
         if not _elected_rule:
             leads = list([])
         else:
@@ -214,7 +213,7 @@ def auto_detect(proj_fld, uid):
         elected_rule = v_leads[0] if v_leads else fw_leads[0] if fw_leads else None
         if elected_rule:
             # Check if the history in the tmp file can be updated before exiting the function
-            if not putils.history_updated(elected_rule, tmp_file, framework):
+            if not utils.history_updated(elected_rule, tmp_file, framework):
                 s_print('scan', 'W', 'A problem occurred when trying to write in rules_history.json', uid)
             return elected_rule
         else:
@@ -237,7 +236,7 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
         state['step'] = 'arch'
         if state['total'] == 1:
             count = ''
-        for elem_name in putils.iglob_hidden(proj_fld + '/**', recursive=True):
+        for elem_name in utils.iglob_hidden(proj_fld + '/**', recursive=True):
             rel_name = elem_name.split(f'{proj_fld}/')[1]
             proceed = True
             output = True
@@ -313,7 +312,7 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
                     except Exception as exc:
                         s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
                         state['failures'].append(proj_fld)
-                        return putils.update_state(state, 1, proj_fld)
+                        return utils.update_state(state, 1, proj_fld)
                 else:
                     try:
                         zip_archive.write(f'{elem_name}', arcname=f'{rel_name}')
@@ -327,15 +326,15 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
                     except Exception as exc:
                         s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
                         state['failures'].append(proj_fld)
-                        return putils.update_state(state, 1, proj_fld)
+                        return utils.update_state(state, 1, proj_fld)
         if success:
             s_print('arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}', uid, cnt=count)
             s_print('arch', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip', uid, cnt=count)
-            return putils.update_state(state, 0, proj_fld)
+            return utils.update_state(state, 0, proj_fld)
         else:
             s_print('arch', 'W', f'Incomplete archive: {dst_path}.zip', uid, cnt=count)
             state['failures'].append(proj_fld)
-            return putils.update_state(state, 1, proj_fld)
+            return utils.update_state(state, 1, proj_fld)
 
 
 def duplicate(proj_fld, dst, rule, options, uid, started, count):
@@ -352,7 +351,7 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
         state['step'] = 'copy'
         fld_count = file_count = symlink_count = 0
         exclusions = rule['actions']['exclude']
-        elem_list = putils.get_files(proj_fld, exclusions, options)
+        elem_list = utils.get_files(proj_fld, exclusions, options)
         if state['total'] == 1:
             count = ''
         os.mkdir(dst)
@@ -382,44 +381,26 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
             s_print('copy', 'I', f'Processing {dep_folder}...', uid, cnt=count)
             shutil.copytree(f'{proj_fld}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
             s_print('copy', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/', uid, cnt=count)
-            return putils.update_state(state, 0, proj_fld)
+            return utils.update_state(state, 0, proj_fld)
         else:
-            return putils.update_state(state, 0, proj_fld)
+            return utils.update_state(state, 0, proj_fld)
     except Exception as exc:
         s_print('copy', 'E', f'during the duplication {exc}', uid, cnt=count)
         state['failures'].append(proj_fld)
-        return putils.update_state(state, 1, proj_fld)
+        return utils.update_state(state, 1, proj_fld)
 
 
 @click.command(epilog=f'shlerp v{get_app_details()["proj_ver"]} - More details: https://github.com/synka777/shlerp-cmd')
-@click.option('-p', '--path', type=click.Path(),
-            help='The path of the project we want to backup. If not provided the current working directory will be backed up')
-@click.option('-o', '--output', type=click.Path(),
-            help='The location where we want to store the backup')
-@click.option('-r', '--rule',
-            help='Manually specify a rule name if you want to skip the language detection process')
-@click.option(
-            '-u', '--upload',
-            help='Make an archive, upload it to file.io and get the download url. An optional validity period can be set following this pattern: ^[1-9]d*[y|Q|M|w|d|h|m|s]$')
-@click.option('-d', '--dependencies', default=False,
-            help='Include the folders marked as dependency folders in the duplication. Only works when using -a',
-            is_flag=True)
-@click.option('-ne', '--noexcl', default=False,
-            help='Disable the exclusion system inherent to each rule',
-            is_flag=True)
-@click.option('-ng', '--nogit', default=False,
-            help='Exclude git data from the backup',
-            is_flag=True)
-@click.option('-kh', '--keephidden', default=False,
-            help='Include hidden files and folders in the backup (they are excluded by default, except for git-related ones)',
-            is_flag=True)
-@click.option('-b', '--batch', default=False,
-            help='This option will consider all the sub-folders from the cwd as repositories and process it one by one'
-                'This is especially useful to backup all your projects on an another location.',
-            is_flag=True)
-@click.option('-a', '--archive', default=False,
-            help='Archive the project folder instead of making a copy of it',
-            is_flag=True)
+@click.option('-p', '--path', type=click.Path(), help=get_app_details()["options"]["path"])
+@click.option('-o', '--output', type=click.Path(), help=get_app_details()["options"]["output"])
+@click.option('-a', '--archive', default=False, is_flag=True, help=get_app_details()["options"]["archive"])
+@click.option('-u', '--upload', help=get_app_details()["options"]["upload"])
+@click.option('-r', '--rule', help=get_app_details()["options"]["rule"])
+@click.option('-b', '--batch', default=False, is_flag=True, help=get_app_details()["options"]["batch"])
+@click.option('-d', '--dependencies', default=False, is_flag=True, help=get_app_details()["options"]["dependencies"])
+@click.option('-ne', '--noexcl', default=False, is_flag=True, help=get_app_details()["options"]["noexcl"])
+@click.option('-ng', '--nogit', default=False, is_flag=True, help=get_app_details()["options"]["nogit"])
+@click.option('-kh', '--keephidden', default=False, is_flag=True, help=get_app_details()["options"]["keephidden"])
 def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, batch, archive):
     """Dev projects backups made easy"""
 
@@ -448,14 +429,14 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
                 if opt[0] == 'path':
                     curr_fld = os.path.abspath(opt[1])
             else:
-                echo(f'Error: Option \'--{opt[0]}\' requires an argument.')
+                s_print('prep', 'E', f'Missing value for {opt[0]}', uid)
                 missing_value = True
     if missing_value:
         exit(0)
     if not path:
         curr_fld = os.getcwd()
 
-    uid = putils.suid()
+    uid = utils.suid()
     state['uid'] = uid
     state['step'] = 'prep'
     if batch and not output:
@@ -512,7 +493,7 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
                     s_print('scan', 'W',
                             f'The folder {batch_elem} won\'t be processed as automatic rule detection failed',
                             uid)
-                    state.update(putils.update_state(state, 1, batch_elem))
+                    state.update(utils.update_state(state, 1, batch_elem))
                     state['ad_failures'].append(batch_elem)
                     state['total'] += 1
 
@@ -548,10 +529,10 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
         output = os.path.abspath(output)
         for backup in backup_sources:
             project_name = backup['proj_fld'].split('/')[-1]
-            backup['dst'] = f'{output}/{project_name}_{putils.get_dt()}'
+            backup['dst'] = f'{output}/{project_name}_{utils.get_dt()}'
     else:
         for backup in backup_sources:
-            backup['dst'] = f'{backup["proj_fld"]}_{putils.get_dt()}'
+            backup['dst'] = f'{backup["proj_fld"]}_{utils.get_dt()}'
     # At this point we should have the dst incorporated into the backup_job list
 
     ####################################
@@ -594,7 +575,7 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
                     response = upload_archive(f'{backup["dst"]}.zip', expiration)
                     json_resp = response.json()
                     if json_resp['success']:
-                        expiry_message = putils.time_until_expiry(json_resp['expires'])
+                        expiry_message = utils.time_until_expiry(json_resp['expires'])
                         s_print(step, 'I', f'🔗 Single use: {json_resp["link"]} - {expiry_message}', uid)
                     else:
                         s_print(step, 'E', f'Upload failed: {json_resp["error"]}', uid)
