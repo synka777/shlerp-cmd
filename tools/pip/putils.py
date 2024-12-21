@@ -1,12 +1,16 @@
+from datetime import datetime
 from tools.utils import log, get_dt, get_settings, get_setup_fld
 from uuid import uuid4
 from os.path import exists
 from click import echo
+import requests
+import pytz
 import os
 import random
 import click
 import glob
 import json
+
 
 
 # Common
@@ -73,11 +77,11 @@ def suid():
 # Shlerp script
 
 
-def update_state(state, status):
+def update_state(state, status, path):
     if status == 0:
-        state['done'] += 1
+        state['done'].append(path)
     elif status == 1:
-        state['failed'] += 1
+        state['failed'].append(path)
     return state
 
 
@@ -235,3 +239,51 @@ def history_updated(rule, history_file, framework):
                 return True
     return False
 
+
+def upload_archive(archive_path, expire_time):
+    url = "https://file.io"
+
+    with open(archive_path, "rb") as file:
+        files = {'file': file}
+        data = {'expires': expire_time}
+
+        return requests.post(url, files=files, data=data)
+
+
+def time_until_expiry(expiry_date_str):
+    # Parse the expiration date string with UTC timezone
+    expiry_date = datetime.strptime(expiry_date_str, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=pytz.UTC)
+    
+    # Get the current date and time with UTC timezone
+    current_date = datetime.now(pytz.UTC)
+    
+    # Calculate the difference
+    difference = expiry_date - current_date
+    
+    # Get the total seconds from the difference
+    total_seconds = difference.total_seconds()
+    
+    if total_seconds < 0:
+        return "Expired"
+    
+    # Calculate days, hours, and minutes
+    days = total_seconds // 86400
+    hours = (total_seconds % 86400) // 3600
+    minutes = (total_seconds % 3600) // 60
+    
+    if days > 1:
+        return f"Expires in {days:.0f} days"
+    elif days == 1:
+        return f"Expires in 1 day"
+    elif hours > 1:
+        if minutes > 0:
+            return f"Expires in {hours:.0f} hours and {minutes:.0f} minutes"
+        else:
+            return f"Expires in {hours:.0f} hours"
+    elif hours == 1:
+        if minutes > 0:
+            return f"Expires in 1 hour and {minutes:.0f} minutes"
+        else:
+            return f"Expires in 1 hour"
+    else:
+        return f"Expires in {minutes:.0f} minutes"

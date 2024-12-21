@@ -14,5 +14,8 @@
             "frameworks": 2,
             "vanilla": 1
         }
+    },
+    "upload_default": {
+        "expiration": "1Q"
     }
 }

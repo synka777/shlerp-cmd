@@ -54,6 +54,19 @@ def get_dt():
 
 # Utilities that do not require pip installations
 
+
+def get_file_size(archive_path):
+    try:
+        # Get the file size in bytes
+        file_size = os.path.getsize(archive_path)
+        # Convert the file size to megabytes
+        file_size_mb = file_size / (1024 * 1024)
+        return file_size_mb
+    except OSError as e:
+        # Handle the error if the file does not exist or is inaccessible
+        return {"error": str(e)}
+
+
 def iterate_log_name(log_name):
     name_chunk = log_name.split('.')[0]
     ext_chunk = log_name.split('.')[1]

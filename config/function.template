@@ -3,15 +3,34 @@ shlerp() {
     script_dir="$(cd "$(dirname "${(%):-%x}")" && pwd)"
     setup_dir="$(cd "$script_dir/.." && pwd)"  # Move up one level to the project root
 
-    # Construct the command
-    cmd="source ${setup_dir}/venv/bin/activate && "  # Ensure proper path
-    cmd+="python3 ${setup_dir}/main.py"             # Use setup_dir correctly
-    cmd+=" $@"
+    # Read the default expiration value from the JSON file
+    upload_default_expiration=$(jq -r '.upload_default.expiration' "$setup_dir/config/settings.json")
     
+    # Construct the command with the virtual environment activation
+    cmd="source ${setup_dir}/venv/bin/activate && python3 ${setup_dir}/main.py"
+
+    # Check if the user has provided `-u`
+    if [[ "$@" == *"-u"* ]]; then
+        # Extract the argument immediately following `-u`
+        u_value=$(echo "$@" | awk 'BEGIN {found=0} {for (i=1; i<=NF; i++) {if (found == 1) {print $i; exit} if ($i == "-u") found=1}}')
+
+        if [[ -z "$u_value" || "$u_value" == -* ]]; then
+            # No value or next argument is another flag, use default from JSON
+            cmd+=" -u $upload_default_expiration"
+        else
+            # `-u` has a valid value; include it
+            cmd+=" -u $u_value"
+        fi
+    fi
+
     # Add the current working directory as a parameter if '-p' is not specified
     if [[ "$@" != *"-p"* ]]; then
         cmd+=" -p $(pwd)"
     fi
+
+    # Append remaining arguments while ignoring handled `-u`
+    remaining_args=$(echo "$@" | sed 's/-u[ ]*[^ ]*//')
+    cmd+=" $remaining_args"
 
     # Execute the constructed command
     eval $cmd

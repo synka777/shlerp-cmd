@@ -6,8 +6,9 @@ Released under the GNU Affero General Public License v3.0
 import click
 from click import echo
 from tools.utils import get_app_details, get_setup_fld
-from tools.pip.putils import s_print
+from tools.pip.putils import s_print, upload_archive
 from tools.pip import putils
+from tools import utils
 from os.path import exists
 from signal import signal
 from signal import SIGINT
@@ -27,10 +28,10 @@ state = {
     'uid': '',  # UID that represents the current execution. Not meant to be changed after its initial initialization
     'step': '',  # Represents the step we're in, will be used if a SIGINT occurs
     'total': 0,
-    'done': 0,
-    'failed': 0,
+    'done': [],
+    'failed': [],
     'failures': [],
-    'ad_failures': [],
+    'ad_failures': []
 }
 
 # Main logic & functions
@@ -312,7 +313,7 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
                     except Exception as exc:
                         s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
                         state['failures'].append(proj_fld)
-                        return putils.update_state(state, 1)
+                        return putils.update_state(state, 1, proj_fld)
                 else:
                     try:
                         zip_archive.write(f'{elem_name}', arcname=f'{rel_name}')
@@ -326,15 +327,15 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
                     except Exception as exc:
                         s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
                         state['failures'].append(proj_fld)
-                        return putils.update_state(state, 1)
+                        return putils.update_state(state, 1, proj_fld)
         if success:
             s_print('arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}', uid, cnt=count)
             s_print('arch', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip', uid, cnt=count)
-            return putils.update_state(state, 0)
+            return putils.update_state(state, 0, proj_fld)
         else:
             s_print('arch', 'W', f'Incomplete archive: {dst_path}.zip', uid, cnt=count)
             state['failures'].append(proj_fld)
-            return putils.update_state(state, 1)
+            return putils.update_state(state, 1, proj_fld)
 
 
 def duplicate(proj_fld, dst, rule, options, uid, started, count):
@@ -381,42 +382,45 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
             s_print('copy', 'I', f'Processing {dep_folder}...', uid, cnt=count)
             shutil.copytree(f'{proj_fld}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
             s_print('copy', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/', uid, cnt=count)
-            return putils.update_state(state, 0)
+            return putils.update_state(state, 0, proj_fld)
         else:
-            return putils.update_state(state, 0)
+            return putils.update_state(state, 0, proj_fld)
     except Exception as exc:
         s_print('copy', 'E', f'during the duplication {exc}', uid, cnt=count)
         state['failures'].append(proj_fld)
-        return putils.update_state(state, 1)
+        return putils.update_state(state, 1, proj_fld)
 
 
 @click.command(epilog=f'shlerp v{get_app_details()["proj_ver"]} - More details: https://github.com/synka777/shlerp-cmd')
 @click.option('-p', '--path', type=click.Path(),
-              help='The path of the project we want to backup. If not provided the current working directory will be backed up')
+            help='The path of the project we want to backup. If not provided the current working directory will be backed up')
 @click.option('-o', '--output', type=click.Path(),
-              help='The location where we want to store the backup')
+            help='The location where we want to store the backup')
 @click.option('-r', '--rule',
-              help='Manually specify a rule name if you want to skip the language detection process')
+            help='Manually specify a rule name if you want to skip the language detection process')
+@click.option(
+            '-u', '--upload',
+            help='Make an archive, upload it to file.io and get the download url. An optional validity period can be set following this pattern: ^[1-9]d*[y|Q|M|w|d|h|m|s]$')
 @click.option('-d', '--dependencies', default=False,
-              help='Include the folders marked as dependency folders in the duplication. Only works when using -a',
-              is_flag=True)
+            help='Include the folders marked as dependency folders in the duplication. Only works when using -a',
+            is_flag=True)
 @click.option('-ne', '--noexcl', default=False,
-              help='Disable the exclusion system inherent to each rule',
-              is_flag=True)
+            help='Disable the exclusion system inherent to each rule',
+            is_flag=True)
 @click.option('-ng', '--nogit', default=False,
-              help='Exclude git data from the backup',
-              is_flag=True)
+            help='Exclude git data from the backup',
+            is_flag=True)
 @click.option('-kh', '--keephidden', default=False,
-              help='Include hidden files and folders in the backup (they are excluded by default, except for git-related ones)',
-              is_flag=True)
+            help='Include hidden files and folders in the backup (they are excluded by default, except for git-related ones)',
+            is_flag=True)
 @click.option('-b', '--batch', default=False,
-              help='This option will consider all the sub-folders from the cwd as repositories and process it one by one'
-                   'This is especially useful to backup all your projects on an another location.',
-              is_flag=True)
+            help='This option will consider all the sub-folders from the cwd as repositories and process it one by one'
+                'This is especially useful to backup all your projects on an another location.',
+            is_flag=True)
 @click.option('-a', '--archive', default=False,
-              help='Archive the project folder instead of making a copy of it',
-              is_flag=True)
-def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, archive):
+            help='Archive the project folder instead of making a copy of it',
+            is_flag=True)
+def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, batch, archive):
     """Dev projects backups made easy"""
 
     #####################
@@ -456,17 +460,33 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
     state['step'] = 'prep'
     if batch and not output:
         u_input = s_print('prep', 'W', 'You are about to backup your projects in the same folder. Continue (Y/N)? ',
-                          uid,
-                          input=True
-                          )
+                        uid,
+                        input=True
+                        )
         if u_input == 'N' or u_input == 'n':
             s_print('prep', 'I', 'Exiting shlerp', uid)
+            exit(0)
+
+    is_upload = False
+    if upload:
+        try:
+            if re.compile('^[1-9]d*[y|Q|M|w|d|h|m|s]$').match(upload):
+                archive = True
+                expiration = upload
+                is_upload = True
+            else:
+                raise ValueError
+        except (TypeError, ValueError):
+            s_print('prep', 'E', 'Supported regex format: ^[1-9]d*[y|Q|M|w|d|h|m|s]$ Tip: You can use -u without any value', uid)
             exit(0)
 
     #####################
     # Main logic
 
     def get_sources(**kwargs):
+        """Get the folder list to backup and scan each folder
+        to determine the programming language/framework used
+        """
         batch_list = []
         if batch:
             batch_list = [f'{curr_fld}/{f}' for f in os.listdir(curr_fld)]
@@ -492,9 +512,13 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
                     s_print('scan', 'W',
                             f'The folder {batch_elem} won\'t be processed as automatic rule detection failed',
                             uid)
-                    state.update(putils.update_state(state, 1))
+                    state.update(putils.update_state(state, 1, batch_elem))
                     state['ad_failures'].append(batch_elem)
                     state['total'] += 1
+
+    ################################################
+    # 1 - Check options validity & prepare mandatory
+    #     variables for data processing
 
     if not rule:
         get_sources()
@@ -528,18 +552,22 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
     else:
         for backup in backup_sources:
             backup['dst'] = f'{backup["proj_fld"]}_{putils.get_dt()}'
-
     # At this point we should have the dst incorporated into the backup_job list
+
+    ####################################
+    # 2 - Data processing, show progress 
 
     state['total'] += len(backup_sources)
     for backup in backup_sources:
         start_time = time.time()
         show_state = [True if state['total'] > 1 else False]
         count = ''
-        if show_state:
+        if show_state: # Used to display information
             count = f'{state["done"] + state["failed"]}/{state["total"]}'
-        if batch:
+
+        if batch: # Used to display information
             s_print('arch' if archive else 'copy', 'I', f'Processing: {backup["proj_fld"]}', uid, cnt=count)
+
         if archive:
             # If --archive is provided to the script, we use make_archive()
             state = make_archive(
@@ -554,14 +582,31 @@ def main(path, output, rule, dependencies, noexcl, nogit, keephidden, batch, arc
                 backup['rule'], options,
                 uid, start_time, count
             )
-            # state = duplicate(payload)
 
-        if batch:
-            if state['done'] + state['failed'] == state['total']:
+        if is_upload:
+            step = 'uplo'
+            if backup['proj_fld'] in state['done']:
+                archive_size_mb = utils.get_file_size(f'{backup["dst"]}.zip')
+                archive_size_gb = archive_size_mb / 1024  # Convert MB to GB
+                if archive_size_gb > 2:  # 2 GB limit
+                    s_print(step, 'E', f'File size is too big: {archive_size_gb:.2f} GB', uid)
+                else:
+                    response = upload_archive(f'{backup["dst"]}.zip', expiration)
+                    json_resp = response.json()
+                    if json_resp['success']:
+                        expiry_message = putils.time_until_expiry(json_resp['expires'])
+                        s_print(step, 'I', f'🔗 Single use: {json_resp["link"]} - {expiry_message}', uid)
+                    else:
+                        s_print(step, 'E', f'Upload failed: {json_resp["error"]}', uid)
+            else:
+                s_print(step, 'E', 'Archiving process failed - skipping upload', uid)
+
+        if batch:  # Used to display information
+            if len(state['done']) + len(state['failed']) == state['total']:
                 summary = f'Successful: {state["done"]}, - ' \
-                          f'Failed: {state["failed"]}, - ' \
-                          f'Total runtime: {"%.2f" % (time.time() - exec_time)}s'
-                step = 'arch' if archive else 'copy'
+                        f'Failed: {state["failed"]}, - ' \
+                        f'Total runtime: {"%.2f" % (time.time() - exec_time)}s'
+                # step = 'arch' if archive else 'copy'
                 s_print(step, 'I', summary, uid)
                 if state['failed'] > 0 and len(state['failures']) > 0:
                     s_print(step, 'W', f'step failures: {state["failures"]}', uid)
