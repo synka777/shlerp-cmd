@@ -575,7 +575,7 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
                     response = upload_archive(f'{backup["dst"]}.zip', expiration)
                     json_resp = response.json()
                     if json_resp['success']:
-                        expiry_message = utils.time_until_expiry(json_resp['expires'])
+                        expiry_message = putils.time_until_expiry(json_resp['expires'])
                         s_print(step, 'I', f'🔗 Single use: {json_resp["link"]} - {expiry_message}', uid)
                     else:
                         s_print(step, 'E', f'Upload failed: {json_resp["error"]}', uid)
