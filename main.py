@@ -5,8 +5,7 @@ Released under the GNU Affero General Public License v3.0
 """
 import click
 from tools.utils import get_app_details, get_setup_fld
-from tools.pip.putils import s_print, upload_archive
-from tools.pip import putils
+from tools.pip.putils import s_print, upload_archive, time_until_expiry
 from tools import utils
 from os.path import exists
 from signal import signal
@@ -24,13 +23,13 @@ import json
 # Global variables
 
 state = {
-    'uid': '',  # UID that represents the current execution. Not meant to be changed after its initial initialization
-    'step': '',  # Represents the step we're in, will be used if a SIGINT occurs
-    'total': 0,
-    'done': [],
-    'failed': [],
-    'failures': [],
-    'ad_failures': []
+    'uid': '', # UID that represents the current execution. Not meant to be changed after its initial initialization
+    'step': '', # Represents the step we're in, will be used if a SIGINT occurs
+    'backed_up': [], # Lists successfully backed up projects path
+    'failures': [], # Lists the projects that couldn't be backed up
+    'ad_failures': [], # Lists the paths for which the autodetection failed
+    'upload_failures': [], # Lists the paths for which the upload failed
+    'total': 0 # Total number of projects to backup
 }
 
 # Main logic & functions
@@ -312,7 +311,7 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
                     except Exception as exc:
                         s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
                         state['failures'].append(proj_fld)
-                        return utils.update_state(state, 1, proj_fld)
+                        # return utils.update_state(state, 1, proj_fld)
                 else:
                     try:
                         zip_archive.write(f'{elem_name}', arcname=f'{rel_name}')
@@ -326,15 +325,15 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
                     except Exception as exc:
                         s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
                         state['failures'].append(proj_fld)
-                        return utils.update_state(state, 1, proj_fld)
+                        # return utils.update_state(state, 1, proj_fld)
         if success:
             s_print('arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}', uid, cnt=count)
             s_print('arch', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip', uid, cnt=count)
-            return utils.update_state(state, 0, proj_fld)
+            # return utils.update_state(state, 0, proj_fld)
         else:
             s_print('arch', 'W', f'Incomplete archive: {dst_path}.zip', uid, cnt=count)
             state['failures'].append(proj_fld)
-            return utils.update_state(state, 1, proj_fld)
+            # return utils.update_state(state, 1, proj_fld)
 
 
 def duplicate(proj_fld, dst, rule, options, uid, started, count):
@@ -375,19 +374,19 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
         s_print('copy', 'I', f'✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/', uid, cnt=count)
         dep_folder = exclusions["dep_folder"]
         if options['dependencies'] and exists(f'{proj_fld}/{dep_folder}'):
-            # TODO: optimize the logic here
-            # Try...Except
             start_dep_folder = time.time()
             s_print('copy', 'I', f'Processing {dep_folder}...', uid, cnt=count)
             shutil.copytree(f'{proj_fld}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
             s_print('copy', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/', uid, cnt=count)
-            return utils.update_state(state, 0, proj_fld)
+            state['backed_up'].append(proj_fld)
+            # return utils.update_state(state, 0, proj_fld)
         else:
-            return utils.update_state(state, 0, proj_fld)
+            state['backed_up'].append(proj_fld)
+            # return utils.update_state(state, 0, proj_fld)
     except Exception as exc:
         s_print('copy', 'E', f'during the duplication {exc}', uid, cnt=count)
         state['failures'].append(proj_fld)
-        return utils.update_state(state, 1, proj_fld)
+        # return utils.update_state(state, 1, proj_fld)
 
 
 @click.command(epilog=f'shlerp v{get_app_details()["proj_ver"]} - More details: https://github.com/synka777/shlerp-cmd')
@@ -493,7 +492,7 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
                     s_print('scan', 'W',
                             f'The folder {batch_elem} won\'t be processed as automatic rule detection failed',
                             uid)
-                    state.update(utils.update_state(state, 1, batch_elem))
+                    # state.update(utils.update_state(state, 1, batch_elem))
                     state['ad_failures'].append(batch_elem)
                     state['total'] += 1
 
@@ -544,21 +543,21 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
         show_state = [True if state['total'] > 1 else False]
         count = ''
         if show_state: # Used to display information
-            count = f'{state["done"] + state["failed"]}/{state["total"]}'
+            count = f'{(len(state['backed_up']) + len(state["failures"]))+1}/{state["total"]}'
 
         if batch: # Used to display information
             s_print('arch' if archive else 'copy', 'I', f'Processing: {backup["proj_fld"]}', uid, cnt=count)
 
         if archive:
             # If --archive is provided to the script, we use make_archive()
-            state = make_archive(
+            make_archive(
                 backup['proj_fld'], backup['dst'],
                 backup['rule'], options,
                 uid, start_time, count
             )
         else:
             # Else if we don't want an archive we will do a copy of the project instead
-            state = duplicate(
+            duplicate(
                 backup['proj_fld'], backup['dst'],
                 backup['rule'], options,
                 uid, start_time, count
@@ -566,7 +565,8 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
 
         if is_upload:
             step = 'uplo'
-            if backup['proj_fld'] in state['done']:
+            state['step'] = step
+            if backup['proj_fld'] in state['backed_up']:
                 archive_size_mb = utils.get_file_size(f'{backup["dst"]}.zip')
                 archive_size_gb = archive_size_mb / 1024  # Convert MB to GB
                 if archive_size_gb > 2:  # 2 GB limit
@@ -575,25 +575,34 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
                     response = upload_archive(f'{backup["dst"]}.zip', expiration)
                     json_resp = response.json()
                     if json_resp['success']:
-                        expiry_message = putils.time_until_expiry(json_resp['expires'])
+                        expiry_message = time_until_expiry(json_resp['expires'])
                         s_print(step, 'I', f'🔗 Single use: {json_resp["link"]} - {expiry_message}', uid)
                     else:
+                        state['upload_failures'].append(backup['proj_fld'])
                         s_print(step, 'E', f'Upload failed: {json_resp["error"]}', uid)
             else:
                 s_print(step, 'E', 'Archiving process failed - skipping upload', uid)
 
         if batch:  # Used to display information
-            if len(state['done']) + len(state['failed']) == state['total']:
-                summary = f'Successful: {state["done"]}, - ' \
-                        f'Failed: {state["failed"]}, - ' \
-                        f'Total runtime: {"%.2f" % (time.time() - exec_time)}s'
-                # step = 'arch' if archive else 'copy'
-                s_print(step, 'I', summary, uid)
-                if state['failed'] > 0 and len(state['failures']) > 0:
-                    s_print(step, 'W', f'step failures: {state["failures"]}', uid)
-                if len(state['ad_failures']) > 0:
-                    s_print(step, 'W', f'Detection failures: {state["ad_failures"]}', uid)
+            failed_cnt = len(state['failures']) + len(state['ad_failures'])
+            backed_up_cnt = len(state['backed_up'])
 
+            # This condition is there to make sure we got through the whole list of projects
+            # before displaying the stats
+            if backed_up_cnt + failed_cnt == state['total']:
+                step = state['step']
+                summary = f'Successful: {backed_up_cnt}, - ' \
+                        f'Failed: {failed_cnt}, - ' \
+                        f'Total runtime: {'%.2f' % (time.time() - exec_time)}s'
+                # Display which kind of operation has been done during current execution
+                operation = 'Upload' if upload else 'Archive' if archive else 'Copy'
+                s_print(step, 'I', summary, uid)
+                if len(state['ad_failures']) > 0:
+                    s_print(step, 'W', f'Detection failures: {state['ad_failures']}', uid)
+                if len(state['failures']) > 0:
+                    s_print(step, 'W', operation, f'Backup failures: {state['failures']}', uid)
+                if len(state['upload_failures']) > 0:
+                    s_print(step, 'W', f'Upload failures: {state['upload_failures']}', uid)
 
 def handle_sigint(signalnum, frame):
     s_print(state['step'], 'E', f'SIGINT: Interrupted by user', state['uid'])

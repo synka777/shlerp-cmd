@@ -7,9 +7,10 @@ import requests
 import pytz
 import click
 
-
-# This file is there to list functions that are not be used in the setup script
-
+########################################################
+# This file is listing functions that need pip packages
+# and won't be used in the setup script as there aren't
+# any virtual environments installed at first
 
 def s_print(step, lvl, message, *args, **kwargs):
     """Standardizes the output format
