@@ -75,39 +75,6 @@ def suid():
     return uid
 
 
-def get_file_size(archive_path):
-    try:
-        # Get the file size in bytes
-        file_size = os.path.getsize(archive_path)
-        # Convert the file size to megabytes
-        file_size_mb = file_size / (1024 * 1024)
-        return file_size_mb
-    except OSError as e:
-        # Handle the error if the file does not exist or is inaccessible
-        return {"error": str(e)}
-
-
-def spinner_animation(stop_event, message):
-    """Function to animate the spinner in a separate thread."""
-    spinner = ['\\', '|', '/', '-']
-    spin_index = 0
-
-    while not stop_event.is_set():  # Keep spinning until the event is set
-        sys.stdout.write(f'\r{spinner[spin_index]} {message}')
-        sys.stdout.flush()
-        spin_index = (spin_index + 1) % len(spinner)
-        time.sleep(0.1)
-    sys.stdout.write('\r')  # Clear the spinner line when done
-
-
-def update_state(state, status, path):
-    if status == 0:
-        state['backed_up'].append(path)
-    elif status == 1:
-        state['failed'].append(path)
-    return state
-
-
 def iterate_log_name(log_name):
     name_chunk = log_name.split('.')[0]
     ext_chunk = log_name.split('.')[1]
@@ -224,6 +191,18 @@ def iglob_hidden(*args, **kwargs):
         yield from glob.iglob(*args, **kwargs)
     finally:
         glob._ishidden = old_ishidden
+
+
+def get_file_size(archive_path):
+    try:
+        # Get the file size in bytes
+        file_size = os.path.getsize(archive_path)
+        # Convert the file size to megabytes
+        file_size_mb = file_size / (1024 * 1024)
+        return file_size_mb
+    except OSError as e:
+        # Handle the error if the file does not exist or is inaccessible
+        return {"error": str(e)}
 
 
 def get_files(path, exclusions, options):

@@ -3,13 +3,25 @@ Copyright (c) 2023 Mathieu BARBE-GAYET
 All Rights Reserved.
 Released under the GNU Affero General Public License v3.0
 """
+
 import click
-from tools.utils import get_app_details, get_setup_fld
-from tools.pip.putils import s_print, upload_archive, time_until_expiry
+from tools.utils import (
+    get_app_details,
+    get_setup_fld
+)
+from tools.pip.putils import (
+    s_print,
+    upload_archive,
+    time_until_expiry,
+)
+from tools.core_tools import (
+    frameworks_processing,
+    vanilla_processing,
+    prune_tried_rules
+)
 from tools import utils
 from os.path import exists
-from signal import signal
-from signal import SIGINT
+from signal import signal, SIGINT
 from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
 import threading
 import re
@@ -32,10 +44,16 @@ state = {
     'total': 0 # Total number of projects to backup
 }
 
+
 # Main logic & functions
 
-
 def auto_detect(proj_fld, uid):
+    """Auto-detects the project language/framework
+    to then back it up while applying the exclusions defined in the rule that
+    matched for this particular language/framework
+    :return: dictionary/object representing the rule/language corresponding to the project
+    """
+    global state
     v_leads = []
     fw_leads = []
     recent_rules = remaining_rules = {'frameworks': [], 'vanilla': []}
@@ -45,84 +63,6 @@ def auto_detect(proj_fld, uid):
     unclear = False
     threshold = 10  # Adapt it to match expected behavior
     state['step'] = 'scan'
-
-    def frameworks_processing(_rules):
-        _fw_leads = []
-        for _rule in _rules['frameworks']:
-            total = 0
-            # Compare the files found into the project with the files that are defined into the current rule.
-            # If both are the same, then it's a match. In this case, add score (weight) for the current rule.
-            for file in _rule['detect']['files']:
-                names = file['names']
-                pattern = file['pattern']
-                if len(names) == 1:
-                    # If only one filename check if it exists, then check its content
-                    filename = names[0]
-                    if exists(f'{proj_fld}/{filename}'):
-                        # If the pattern defined in the rule is not set to null, search it in the file
-                        if pattern:
-                            with open(f'{proj_fld}/{filename}', 'r') as file_content:
-                                if pattern in file_content.read():
-                                    total += file['weight']
-                        else:
-                            total += file['weight']
-                if len(names) > 1:
-                    for name in names:
-                        if exists(f'{proj_fld}/{name}'):
-                            if pattern:
-                                with open(f'{proj_fld}/{name}', 'r') as file_content:
-                                    if pattern in file_content.read():
-                                        total += file['weight']
-                            else:
-                                total += file['weight']
-
-            # Then we compare the project sub-folders with the folders defined into the current _rule.
-            for folder in _rule['detect']['folders']:
-                name = folder['name']
-                # We check if each folder from the current rule exists
-                if exists(f'{proj_fld}/{name}/'):
-                    # If we don't have any files to check in the folder, increment the rule weight
-                    if not folder['files']:
-                        total += folder['weight']
-                    else:
-                        # Make sure that each files from the folder element exists before increasing the weight
-                        match = True
-                        for file in folder['files']:
-                            if not exists(f'{proj_fld}/{folder["name"]}/{file}'):
-                                match = False
-                        if match:
-                            total += folder['weight']
-            _rule["total"] = total
-            # Calculates the threshold for the current rule
-            rule_threshold = 0
-            for file_then_fld in _rule['detect'].keys():
-                for criteria in _rule['detect'][file_then_fld]:
-                    rule_threshold += criteria['weight']
-            # Then add the rule into the leads array if all of its criteria matched
-            if _rule['total'] >= rule_threshold:
-                _fw_leads.append(_rule)
-        return utils.elect(_fw_leads)
-
-    def vanilla_processing(_rules):
-        s_print('scan', 'I', 'Crawling...', uid)
-        leads = utils.crawl_for_weight(proj_fld, _rules['vanilla'])
-        # If the weight of the rule that has the heaviest score is lighter than the threshold,
-        # We empty the leads list
-        _elected_rule = utils.elect(leads)
-        if not _elected_rule:
-            leads = list([])
-        else:
-            leads = list([]) if _elected_rule[0]['total'] < threshold else list([_elected_rule[0]])
-        return leads
-
-    def prune_tried_rules(_rules, _tmp_file, history_type):
-        # We get a copy of the certain type of rules, let's say Vanilla rules for example.
-        _remaining_rules = _rules[history_type].copy()
-        for _rule_name in _tmp_file[history_type]:
-            for _rule in _rules[history_type]:
-                if _rule['name'] == _rule_name:
-                    _remaining_rules.remove(_rule)
-        return _remaining_rules
 
     #####################
     # Step 1: Get the rules from the config/temporary file
@@ -159,7 +99,7 @@ def auto_detect(proj_fld, uid):
 
     # 2-1: Using the history
     if recent_rules:
-        fw_leads = frameworks_processing(recent_rules)
+        fw_leads = frameworks_processing(recent_rules, proj_fld)
         if fw_leads:
             framework_matched = True
 
@@ -173,7 +113,7 @@ def auto_detect(proj_fld, uid):
 
         # Then do the pattern matching against those remaining rules
         s_print('scan', 'I', 'Trying the whole ruleset...', uid)
-        fw_leads = frameworks_processing(remaining_rules)
+        fw_leads = frameworks_processing(remaining_rules, proj_fld)
 
     if fw_leads:
         framework_matched = True
@@ -187,7 +127,7 @@ def auto_detect(proj_fld, uid):
 
         # 3-1: Using the history
         if recent_rules:
-            v_leads = vanilla_processing(recent_rules)
+            v_leads = vanilla_processing(recent_rules, threshold, proj_fld, uid)
             if len(v_leads) > 0:
                 threshold_reached = True
 
@@ -195,7 +135,7 @@ def auto_detect(proj_fld, uid):
         if not threshold_reached:
             remaining_rules['vanilla'] = prune_tried_rules(rules, tmp_file, 'vanilla')
             s_print('scan', 'I', 'Trying the whole ruleset...', uid)
-            v_leads = vanilla_processing(remaining_rules)
+            v_leads = vanilla_processing(remaining_rules, threshold, proj_fld, uid)
 
         if v_leads and len(v_leads) > 1:
             unclear = True
@@ -229,6 +169,7 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
     :param started: number representing the time when the script has been executed
     :param count: string that represents nothing or the current count out of a total of backups to process
     """
+    global state
     with ZipFile(f'{dst_path}.zip', 'w', ZIP_DEFLATED, compresslevel=9) as zip_archive:
         fld_count = file_count = symlink_count = 0
         success = False
@@ -311,7 +252,6 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
                     except Exception as exc:
                         s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
                         state['failures'].append(proj_fld)
-                        # return utils.update_state(state, 1, proj_fld)
                 else:
                     try:
                         zip_archive.write(f'{elem_name}', arcname=f'{rel_name}')
@@ -325,15 +265,13 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
                     except Exception as exc:
                         s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
                         state['failures'].append(proj_fld)
-                        # return utils.update_state(state, 1, proj_fld)
         if success:
+            state['backed_up'].append(proj_fld)
             s_print('arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}', uid, cnt=count)
             s_print('arch', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip', uid, cnt=count)
-            # return utils.update_state(state, 0, proj_fld)
         else:
-            s_print('arch', 'W', f'Incomplete archive: {dst_path}.zip', uid, cnt=count)
             state['failures'].append(proj_fld)
-            # return utils.update_state(state, 1, proj_fld)
+            s_print('arch', 'W', f'Incomplete archive: {dst_path}.zip', uid, cnt=count)
 
 
 def duplicate(proj_fld, dst, rule, options, uid, started, count):
@@ -346,6 +284,7 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
     :param started: number representing the time when the script has been executed
     :param count: string that represents nothing or the current count out of a total of backups to process
     """
+    global state
     try:
         state['step'] = 'copy'
         fld_count = file_count = symlink_count = 0
@@ -379,14 +318,11 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
             shutil.copytree(f'{proj_fld}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
             s_print('copy', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/', uid, cnt=count)
             state['backed_up'].append(proj_fld)
-            # return utils.update_state(state, 0, proj_fld)
         else:
             state['backed_up'].append(proj_fld)
-            # return utils.update_state(state, 0, proj_fld)
     except Exception as exc:
         s_print('copy', 'E', f'during the duplication {exc}', uid, cnt=count)
         state['failures'].append(proj_fld)
-        # return utils.update_state(state, 1, proj_fld)
 
 
 @click.command(epilog=f'shlerp v{get_app_details()["proj_ver"]} - More details: https://github.com/synka777/shlerp-cmd')
@@ -492,7 +428,6 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
                     s_print('scan', 'W',
                             f'The folder {batch_elem} won\'t be processed as automatic rule detection failed',
                             uid)
-                    # state.update(utils.update_state(state, 1, batch_elem))
                     state['ad_failures'].append(batch_elem)
                     state['total'] += 1
 
@@ -603,6 +538,7 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
                     s_print(step, 'W', operation, f'Backup failures: {state['failures']}', uid)
                 if len(state['upload_failures']) > 0:
                     s_print(step, 'W', f'Upload failures: {state['upload_failures']}', uid)
+
 
 def handle_sigint(signalnum, frame):
     s_print(state['step'], 'E', f'SIGINT: Interrupted by user', state['uid'])
