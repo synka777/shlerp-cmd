@@ -57,7 +57,7 @@ def auto_detect(proj_fld, uid):
     v_leads = []
     fw_leads = []
     recent_rules = remaining_rules = {'frameworks': [], 'vanilla': []}
-    history_names = ('frameworks', 'vanilla')
+    history_types = ('frameworks', 'vanilla')
     framework_matched = False
     threshold_reached = False
     unclear = False
@@ -65,7 +65,7 @@ def auto_detect(proj_fld, uid):
     state['step'] = 'scan'
 
     #####################
-    # Step 1: Get the rules from the config/temporary file
+    # Step 1: Get the rules from the config & temporary file
 
     try:
         with open(f'{get_setup_fld()}/config/rules.json', 'r') as read_file:
@@ -78,13 +78,15 @@ def auto_detect(proj_fld, uid):
         with open(f'{get_setup_fld()}/tmp/rules_history.json', 'r') as read_tmp:
             tmp_file = json.load(read_tmp)
         # If the rules history hasn't been checked yet, only keep the rules that are mentioned in the tmp file
-        for hist in history_names:
-            if len(tmp_file[hist]) > 0:
-                iter_rules = recent_rules = rules.copy()
-                for rule in iter_rules[hist]:
-                    for tmp_entry in tmp_file[hist]:
-                        if re.search(f'\b{rule["name"]}\b', tmp_entry):
-                            recent_rules[hist].remove(rule)
+        # The history file only contains the name of the rules that have been rexently used by shlerp.
+        # Before the scan, we need to know how the rules that are listed in the history file are actually built.
+        for h_type in history_types:
+            if len(tmp_file[h_type]) > 0:
+                for rule in rules[h_type]:
+                    for tmp_entry in tmp_file[h_type]:
+                        if tmp_entry == rule['name']:
+                            recent_rules[h_type].append(rule)
+
     except FileNotFoundError:
         s_print('scan', 'I', 'Temp file not found, will use the whole ruleset instead', uid)
         tmp_file = {'frameworks': [], 'vanilla': []}
@@ -96,23 +98,25 @@ def auto_detect(proj_fld, uid):
 
     #####################
     # Step 2: Evaluate rules from the frameworks section
+    # It makes sense to try to match the frameworks first as they are more specific than the vanilla rules
 
     # 2-1: Using the history
-    if recent_rules:
+    if len(recent_rules['frameworks']) > 0:
+        s_print('scan', 'I', 'Evaluating framework history...', uid)
         fw_leads = frameworks_processing(recent_rules, proj_fld)
         if fw_leads:
             framework_matched = True
 
     # 2-2: Using the remaining framework rules that were not present into the history
     if not framework_matched:
-        if recent_rules:
+        if len(recent_rules['vanilla']) > 0:
             # First we create a dict that only contains the remaining rules
             remaining_rules['frameworks'] = prune_tried_rules(rules, tmp_file, 'frameworks')
         else:
             remaining_rules = rules.copy()
 
-        # Then do the pattern matching against those remaining rules
-        s_print('scan', 'I', 'Trying the whole ruleset...', uid)
+        # Then do the pattern matching: those remaining rules
+        s_print('scan', 'I', 'Evaluating framework rules...', uid)
         fw_leads = frameworks_processing(remaining_rules, proj_fld)
 
     if fw_leads:
@@ -127,6 +131,7 @@ def auto_detect(proj_fld, uid):
 
         # 3-1: Using the history
         if recent_rules:
+            s_print('scan', 'I', 'Evaluating vanilla history...', uid)
             v_leads = vanilla_processing(recent_rules, threshold, proj_fld, uid)
             if len(v_leads) > 0:
                 threshold_reached = True
@@ -134,7 +139,7 @@ def auto_detect(proj_fld, uid):
         # 3-2: Using the whole ruleset
         if not threshold_reached:
             remaining_rules['vanilla'] = prune_tried_rules(rules, tmp_file, 'vanilla')
-            s_print('scan', 'I', 'Trying the whole ruleset...', uid)
+            s_print('scan', 'I', 'Evaluating vanilla rules...', uid)
             v_leads = vanilla_processing(remaining_rules, threshold, proj_fld, uid)
 
         if v_leads and len(v_leads) > 1:
@@ -419,7 +424,7 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
                         s_print('scan', 'I', f'Scanning {batch_elem}', uid)
                         elem_rule = auto_detect(batch_elem, uid)
                 if elem_rule:
-                    s_print('scan', 'I', f'Matching rule: {elem_rule["name"]}', uid)
+                    s_print('scan', 'I', f'Detected: {elem_rule["name"]}', uid)
                     backup_sources.append({
                         'proj_fld': batch_elem,
                         'rule': elem_rule
