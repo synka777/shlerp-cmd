@@ -1,7 +1,7 @@
 import os
 from os import environ
 from os.path import exists
-from tools.pip.putils import s_print
+from tools.piputils import print_term
 from tools.utils import get_setup_fld
 import sys
 import subprocess
@@ -31,19 +31,19 @@ def uninstall():
                     subprocess.run(["mv", tmp_rc_path, rc_file_path])
             else:
                 double_check = False
-                s_print('uninstall', 'I', f'[1/2] OK: Function not found in {rc_file}')
+                print_term('uninstall', 'I', f'[1/2] OK: Function not found in {rc_file}')
 
         if double_check:
             with open(rc_file_path, 'r') as read_rc:
                 if source_line not in read_rc:
-                    s_print('uninstall', 'I', f'[1/2] OK: Uninstalled the function from {rc_file}')
+                    print_term('uninstall', 'I', f'[1/2] OK: Uninstalled the function from {rc_file}')
                 else:
-                    s_print('uninstall', 'E', f'[1/2] ERROR: Function still sourced in {rc_file}')
+                    print_term('uninstall', 'E', f'[1/2] ERROR: Function still sourced in {rc_file}')
 
     # Step 2: Remove the installation folder
     subprocess.call([
         'sudo', 'rm', '-rf', f'{setup_folder}',
-        '&&' f'{s_print("uninstall", "I", f"[2/2] OK: Uninstalled shlerp from {setup_folder}")}'
+        '&&' f'{print_term("uninstall", "I", f"[2/2] OK: Uninstalled shlerp from {setup_folder}")}'
         'wait'
     ])
     sys.exit(0)

@@ -20,13 +20,13 @@ app_details = {}
 # Getter functions
 
 def get_setup_fld():
-        # Resolve the absolute path to the current script
-        script_path = os.path.abspath(__file__)
-        # Get the directory containing this script
-        script_dir = os.path.dirname(script_path)
-        # Get the parent directory of the script
-        parent_dir = os.path.dirname(script_dir)
-        return parent_dir
+    # Resolve the absolute path to the current script
+    script_path = os.path.abspath(__file__)
+    # Get the directory containing this script
+    script_dir = os.path.dirname(script_path)
+    # Get the parent directory of the script
+    parent_dir = os.path.dirname(script_dir)
+    return parent_dir
 
 
 def get_app_details():
@@ -98,6 +98,16 @@ def spinner_animation(stop_event, message):
         spin_index = (spin_index + 1) % len(spinner)
         time.sleep(0.1)
     sys.stdout.write('\r')  # Clear the spinner line when done
+
+
+def remove_previous_line():
+    """ Removes the previous line from the terminal output and move the cursor"""
+    # Move the cursor up by one line
+    sys.stdout.write("\033[F")  # ANSI escape code: Move cursor up one line
+    # Clear the current line
+    sys.stdout.write("\033[K")  # ANSI escape code: Clear from cursor to the end of the line
+    # Ensure output is flushed
+    sys.stdout.flush()
 
 
 def iterate_log_name(log_name):

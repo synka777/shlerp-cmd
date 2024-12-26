@@ -3,7 +3,7 @@
 # rule detection system to scan the project and find out the
 # language/framework context that is used in a particular project
 
-from tools.pip.putils import s_print
+from tools.piputils import print_term
 import tools.utils as utils
 from os.path import exists
 
@@ -76,7 +76,7 @@ def vanilla_processing(_rules, threshold, proj_fld, uid):
     :return: A list containing the "vanilla" rule that matches the most with the project, can return
     several ones if there are multiple rules having the same score ("weight")
     """
-    s_print('scan', 'I', 'Crawling...', uid)
+    print_term('scan', 'I', 'Crawling...', uid)
     leads = utils.crawl_for_weight(proj_fld, _rules['vanilla'])
     # If the weight of the rule that has the heaviest score is lighter than the threshold,
     # We empty the leads list

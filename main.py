@@ -9,18 +9,21 @@ from tools.state import (
     state,
     set_state,
     append_state,
-    incr_state
+    incr_state,
+    get_step,
+    flush_steps,
+    force_verbose
 )
 from tools.utils import (
     get_app_details,
     get_setup_fld
 )
-from tools.pip.putils import (
-    s_print,
+from tools.piputils import (
+    print_term,
     upload_archive,
     time_until_expiry,
 )
-from tools.core_tools import (
+from tools.scan import (
     frameworks_processing,
     vanilla_processing,
     prune_tried_rules
@@ -54,8 +57,7 @@ def auto_detect(proj_fld, uid):
     threshold_reached = False
     unclear = False
     threshold = 10  # Adapt it to match expected behavior
-    set_state('step', 'scan')
-    clear = True
+    # set_state('step', 'scan')
 
     #####################
     # Step 1: Get the rules from the config & temporary file
@@ -64,7 +66,7 @@ def auto_detect(proj_fld, uid):
         with open(f'{get_setup_fld()}/config/rules.json', 'r') as read_file:
             rules = json.load(read_file)
     except FileNotFoundError:
-        s_print('scan', 'E', 'rules.json not found', uid)
+        print_term('scan', 'E', 'rules.json not found', uid)
         exit(1)
 
     try:
@@ -81,7 +83,7 @@ def auto_detect(proj_fld, uid):
                             recent_rules[h_type].append(rule)
 
     except FileNotFoundError:
-        s_print('scan', 'I', 'Temp file not found, will use the whole ruleset instead', uid)
+        print_term('scan', 'I', 'Temp file not found, will use the whole ruleset instead', uid)
         tmp_file = {'frameworks': [], 'vanilla': []}
         tmp_fld = f'{get_setup_fld()}/tmp'
         if not exists(tmp_fld):
@@ -95,7 +97,7 @@ def auto_detect(proj_fld, uid):
 
     # 2-1: Using the history
     if len(recent_rules['frameworks']) > 0:
-        s_print('scan', 'I', 'Evaluating framework history...', uid)
+        print_term('scan', 'I', 'Evaluating framework history...', uid)
         fw_leads = frameworks_processing(recent_rules, proj_fld)
         if fw_leads:
             framework_matched = True
@@ -109,7 +111,7 @@ def auto_detect(proj_fld, uid):
             remaining_rules = rules.copy()
 
         # Then do the pattern matching: those remaining rules
-        s_print('scan', 'I', 'Evaluating framework rules...', uid)
+        print_term('scan', 'I', 'Evaluating framework rules...', uid)
         fw_leads = frameworks_processing(remaining_rules, proj_fld)
 
     if fw_leads:
@@ -124,7 +126,7 @@ def auto_detect(proj_fld, uid):
 
         # 3-1: Using the history
         if recent_rules:
-            s_print('scan', 'I', 'Evaluating vanilla history...', uid)
+            print_term('scan', 'I', 'Evaluating vanilla history...', uid)
             v_leads = vanilla_processing(recent_rules, threshold, proj_fld, uid)
             if len(v_leads) > 0:
                 threshold_reached = True
@@ -132,7 +134,7 @@ def auto_detect(proj_fld, uid):
         # 3-2: Using the whole ruleset
         if not threshold_reached:
             remaining_rules['vanilla'] = prune_tried_rules(rules, tmp_file, 'vanilla')
-            s_print('scan', 'I', 'Evaluating vanilla rules...', uid)
+            print_term('scan', 'I', 'Evaluating vanilla rules...', uid)
             v_leads = vanilla_processing(remaining_rules, threshold, proj_fld, uid)
 
         if v_leads and len(v_leads) > 1:
@@ -143,7 +145,7 @@ def auto_detect(proj_fld, uid):
 
     if unclear:
         # If we have more than one language remaining it means the auto-detection wasn't successful
-        s_print('scan', 'W', 'Unable to determine the main language for this project', uid)
+        print_term('scan', 'W', 'Unable to determine the main language for this project', uid)
         return None
     else:
         framework = True if fw_leads else False
@@ -151,7 +153,7 @@ def auto_detect(proj_fld, uid):
         if elected_rule:
             # Check if the history in the tmp file can be updated before exiting the function
             if not utils.history_updated(elected_rule, tmp_file, framework):
-                s_print('scan', 'W', 'A problem occurred when trying to write in rules_history.json', uid)
+                print_term('scan', 'W', 'A problem occurred when trying to write in rules_history.json', uid)
             return elected_rule
         else:
             return None
@@ -170,7 +172,6 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
     with ZipFile(f'{dst_path}.zip', 'w', ZIP_DEFLATED, compresslevel=9) as zip_archive:
         fld_count = file_count = symlink_count = 0
         success = False
-        set_state('step', 'arch')
         if state('total') == 1:
             count = ''
         for elem_name in utils.iglob_hidden(proj_fld + '/**', recursive=True):
@@ -244,31 +245,33 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
                     try:
                         zip_archive.writestr(zip_info, os.readlink(f'{elem_name}'))
                         if output:
-                            s_print('arch', 'I', f'Done: {rel_name}', uid, cnt=count)
+                            print_term('arch', 'I', f'Done: {proj_fld}/{rel_name}', uid, cnt=count)
                         success = True
                     except Exception as exc:
-                        s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
+                        print_term('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
                         append_state('failures', proj_fld)
                 else:
                     try:
                         zip_archive.write(f'{elem_name}', arcname=f'{rel_name}')
+                        fld_char = ''
                         if os.path.isdir(elem_name):
                             fld_count += 1
+                            fld_char = '/'
                         else:
                             file_count += 1
                         if output:
-                            s_print('arch', 'I', f'Done: {rel_name}', uid, cnt=count)
+                            print_term('arch', 'I', f'Done: {proj_fld}/{rel_name}{fld_char}', uid, cnt=count)
                         success = True
                     except Exception as exc:
-                        s_print('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
+                        print_term('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
                         append_state('failures', proj_fld)
         if success:
             append_state('backed_up', proj_fld)
-            s_print('arch', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}', uid, cnt=count)
-            s_print('arch', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip', uid, cnt=count)
+            print_term('stat', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}', uid, cnt=count)
+            print_term('stat', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip', uid, cnt=count)
         else:
             append_state('failures', proj_fld)
-            s_print('arch', 'W', f'Incomplete archive: {dst_path}.zip', uid, cnt=count)
+            print_term('stat', 'W', f'Incomplete archive: {dst_path}.zip', uid, cnt=count)
 
 
 def duplicate(proj_fld, dst, rule, options, uid, started, count):
@@ -282,7 +285,6 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
     :param count: string that represents nothing or the current count out of a total of backups to process
     """
     try:
-        set_state('step', 'copy')
         fld_count = file_count = symlink_count = 0
         exclusions = rule['actions']['exclude']
         elem_list = utils.get_files(proj_fld, exclusions, options)
@@ -292,10 +294,12 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
         for elem in elem_list:
             orig = f'{proj_fld}/{elem}'
             full_dst = f'{dst}/{elem}'
+            fld_char = ''
             if os.path.isdir(orig):
+                fld_char = '/'
                 shutil.copytree(orig, full_dst, symlinks=True)
                 if exists(full_dst):
-                    s_print('copy', 'I', f'Done: {proj_fld}/{elem}', uid, cnt=count)
+                    print_term('copy', 'I', f'Done: {proj_fld}/{elem}{fld_char}', uid, cnt=count)
                     fld_count += 1
             else:
                 shutil.copy(orig, full_dst)
@@ -304,20 +308,20 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
                 else:
                     file_count += 1
                 if exists(full_dst):
-                    s_print('copy', 'I', f'Done: {proj_fld}/{elem}', uid, cnt=count)
+                    print_term('copy', 'I', f'Done: {proj_fld}/{elem}', uid, cnt=count)
 
-        s_print('copy', 'I', f'✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/', uid, cnt=count)
+        print_term('stat', 'I', f'✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/', uid, cnt=count)
         dep_folder = exclusions["dep_folder"]
         if options['dependencies'] and exists(f'{proj_fld}/{dep_folder}'):
             start_dep_folder = time.time()
-            s_print('copy', 'I', f'Processing {dep_folder}...', uid, cnt=count)
+            print_term('copy', 'I', f'Processing {dep_folder}...', uid, cnt=count)
             shutil.copytree(f'{proj_fld}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
-            s_print('copy', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/', uid, cnt=count)
+            print_term('stat', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/', uid, cnt=count)
             append_state('backed_up', proj_fld)
         else:
             append_state('backed_up', proj_fld)
     except Exception as exc:
-        s_print('copy', 'E', f'during the duplication {exc}', uid, cnt=count)
+        print_term('copy', 'E', f'during the duplication {exc}', uid, cnt=count)
         append_state('failures', proj_fld)
 
 
@@ -359,7 +363,7 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
                 if opt[0] == 'path':
                     curr_fld = os.path.abspath(opt[1])
             else:
-                s_print('prep', 'E', f'Missing value for {opt[0]}', uid)
+                print_term('prep', 'E', f'Missing value for {opt[0]}', uid)
                 missing_value = True
     if missing_value:
         exit(0)
@@ -368,14 +372,15 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
 
     uid = utils.suid()
     set_state('uid', uid)
-    set_state('step', 'prep')
+    if batch:
+        force_verbose()
     if batch and not output:
-        u_input = s_print('prep', 'W', 'You are about to backup your projects in the same folder. Continue (Y/N)? ',
+        u_input = print_term('prep', 'W', 'You are about to backup your projects in the same folder. Continue (Y/N)? ',
                         uid,
                         input=True
                         )
         if u_input == 'N' or u_input == 'n':
-            s_print('prep', 'I', 'Exiting shlerp', uid)
+            print_term('prep', 'I', 'Exiting shlerp', uid)
             exit(0)
 
     is_upload = False
@@ -388,7 +393,7 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
             else:
                 raise ValueError
         except (TypeError, ValueError):
-            s_print('prep', 'E', 'Supported regex format: ^[1-9]d*[y|Q|M|w|d|h|m|s]$ Tip: You can use -u without any value', uid)
+            print_term('prep', 'E', 'Supported regex format: ^[1-9]d*[y|Q|M|w|d|h|m|s]$ Tip: You can use -u without any value', uid)
             exit(0)
 
     #####################
@@ -411,16 +416,16 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
                     elem_rule = kwargs['rule']
                 else:
                     if not batch_elem.startswith('.'):
-                        s_print('scan', 'I', f'Scanning {batch_elem}', uid)
+                        print_term('scan', 'I', f'Scanning {batch_elem}', uid)
                         elem_rule = auto_detect(batch_elem, uid)
                 if elem_rule:
-                    s_print('scan', 'I', f'Detected: {elem_rule["name"]}', uid)
+                    print_term('scan', 'I', f'Detected: {elem_rule["name"]}', uid)
                     backup_sources.append({
                         'proj_fld': batch_elem,
                         'rule': elem_rule
                     })
                 else:
-                    s_print('scan', 'W',
+                    print_term('scan', 'W',
                             f'The folder {batch_elem} won\'t be processed as automatic rule detection failed',
                             uid)
                     append_state('ad_failures', batch_elem)
@@ -440,6 +445,7 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
             for stored_rule in rules:
                 if stored_rule['name'].lower() == str(rule).lower():
                     if batch:
+                        
                         get_sources(rule=stored_rule)
                     else:
                         backup_sources.append({
@@ -448,7 +454,7 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
                         })
                     match = True
             if not match:
-                s_print('scan', 'E', 'Rule name not found', uid)
+                print_term('scan', 'E', 'Rule name not found', uid)
                 exit(0)
 
     # At this point we should have a list containing at least one project to process
@@ -476,7 +482,7 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
             count = f'{(len(state('backed_up')) + len(state('failures'))) + 1}/{state('total')}'
 
         if batch: # Used to display information
-            s_print('arch' if archive else 'copy', 'I', f'Processing: {backup['proj_fld']}', uid, cnt=count)
+            print_term('arch' if archive else 'copy', 'I', f'Processing: {backup['proj_fld']}', uid, cnt=count)
 
         if archive:
             # If --archive is provided to the script, we use make_archive()
@@ -495,23 +501,22 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
 
         if is_upload:
             step = 'uplo'
-            set_state('step', step)
             if backup['proj_fld'] in state('backed_up'):
                 archive_size_mb = utils.get_file_size(f'{backup["dst"]}.zip')
                 archive_size_gb = archive_size_mb / 1024  # Convert MB to GB
                 if archive_size_gb > 2:  # 2 GB limit
-                    s_print(step, 'E', f'File size is too big: {archive_size_gb:.2f} GB', uid)
+                    print_term(step, 'E', f'File size is too big: {archive_size_gb:.2f} GB', uid)
                 else:
                     response = upload_archive(f'{backup["dst"]}.zip', expiration)
                     json_resp = response.json()
                     if json_resp['success']:
                         expiry_message = time_until_expiry(json_resp['expires'])
-                        s_print(step, 'I', f'🔗 Single use: {json_resp["link"]} - {expiry_message}', uid)
+                        print_term(step, 'I', f'🔗 Single use: {json_resp["link"]} - {expiry_message}', uid)
                     else:
                         append_state('upload_failures', backup['proj_fld'])
-                        s_print(step, 'E', f'Upload failed: {json_resp["error"]}', uid)
+                        print_term(step, 'E', f'Upload failed: {json_resp["error"]}', uid)
             else:
-                s_print(step, 'E', 'Archiving process failed - skipping upload', uid)
+                print_term(step, 'E', 'Archiving process failed - skipping upload', uid)
 
         if batch:  # Used to display information
             failed_cnt = len(state('failures')) + len(state('ad_failures'))
@@ -520,23 +525,23 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
             # This condition is there to make sure we got through the whole list of projects
             # before displaying the stats
             if backed_up_cnt + failed_cnt == state('total'):
-                step = state('step')
+                step = 'stat'
                 summary = f'Successful: {backed_up_cnt}, - ' \
                         f'Failed: {failed_cnt}, - ' \
                         f'Total runtime: {'%.2f' % (time.time() - exec_time)}s'
                 # Display which kind of operation has been done during current execution
                 operation = 'Upload' if upload else 'Archive' if archive else 'Copy'
-                s_print(step, 'I', summary, uid)
+                print_term(step, 'I', summary, uid)
                 if len(state('ad_failures')) > 0:
-                    s_print(step, 'W', f'Detection failures: {state('ad_failures')}', uid)
+                    print_term(step, 'W', f'Detection failures: {state('ad_failures')}', uid)
                 if len(state('failures')) > 0:
-                    s_print(step, 'W', operation, f'Backup failures: {state('failures')}', uid)
+                    print_term(step, 'W', operation, f'Backup failures: {state('failures')}', uid)
                 if len(state('upload_failures')) > 0:
-                    s_print(step, 'W', f'Upload failures: {state('upload_failures')}', uid)
+                    print_term(step, 'W', f'Upload failures: {state('upload_failures')}', uid)
 
 
 def handle_sigint(signalnum, frame):
-    s_print(state('step'), 'E', f'SIGINT: Interrupted by user', state('uid'))
+    print_term(get_step(), 'E', f'SIGINT: Interrupted by user', state('uid'))
     sys.exit()
 
 
