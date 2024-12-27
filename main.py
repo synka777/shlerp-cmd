@@ -10,8 +10,8 @@ from tools.state import (
     set_state,
     append_state,
     incr_state,
-    get_step,
-    flush_steps,
+    get_printed,
+    flush_printed,
     force_verbose
 )
 from tools.utils import (
@@ -541,7 +541,7 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
 
 
 def handle_sigint(signalnum, frame):
-    print_term(get_step(), 'E', f'SIGINT: Interrupted by user', state('uid'))
+    print_term(get_printed()['step'], 'E', f'SIGINT: Interrupted by user', state('uid'))
     sys.exit()
 
 

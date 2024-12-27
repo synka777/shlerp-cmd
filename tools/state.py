@@ -2,7 +2,7 @@ from tools.utils import get_settings
 
 _state = {
     'uid': '', # UID that represents the current execution. Not meant to be changed after its initial initialization
-    'step': [], # Represents the step we're in, will be used if a SIGINT occurs
+    'printed': [], # Represents the step we're in, will be used if a SIGINT occurs
     'verbose': get_settings()['verbose'], # Defines if the printing function should overwrite the previous term line or not
     'backed_up': [], # Lists successfully backed up projects path
     'failures': [], # Lists the projects that couldn't be backed up
@@ -18,16 +18,20 @@ def state(key):
     return _state.get(key)
 
 
-def get_step():
-    return _state['step'][-1]
+def get_printed():
+    return _state['printed'][-1]
+
+
+def after_warning():
+    return _state['printed'][-1]['lvl'] == 'W'
 
 
 def x_consecutive_entries_in_step(x, step):
     count = 0
-    if len(_state['step']) >= x:
-        if _state['step'][-1] == step:
-            for entry in _state['step'][::-1]:
-                if entry == step:
+    if len(_state['printed']) >= x:
+        if _state['printed'][-1]['step'] == step:
+            for entry in _state['printed'][::-1]:
+                if entry['step'] == step:
                     count += 1
                 else:
                     break
@@ -50,15 +54,16 @@ def incr_state(key, amount=1):
     _state[key] += amount
 
 
-def set_step(step):
-    _state['step'].append(step)
-    if len(_state['step']) > 3:
-        _state['step'].pop(0)
+def set_printed(step, lvl):
+    entry = {'step': step, 'lvl': lvl}
+    _state['printed'].append(entry)
+    if len(_state['printed']) > 3:
+        _state['printed'].pop(0)
 
 
-def flush_steps():
+def flush_printed():
     global _state
-    _state['step'] = []
+    _state['printed'] = []
 
 
 def force_verbose():

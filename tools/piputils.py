@@ -5,7 +5,8 @@
 
 from tools.state import (
     state,
-    set_step,
+    set_printed,
+    after_warning,
     x_consecutive_entries_in_step
 )
 from datetime import datetime
@@ -45,20 +46,21 @@ def print_term(step, lvl, message, *args, **kwargs):
         if 'input' in kwarg:
             u_input = True
 
-    set_step(step)
+    set_printed(step, lvl)
     if not lvl == 'E':
         if not step == 'uninstall':
-            if step == 'scan':
-                if x_consecutive_entries_in_step(3, step):
-                    remove_previous_line()
-            else:
-                if not state('verbose'):
-                    if step == 'stat':
-                        if not x_consecutive_entries_in_step(2, 'stat'):
-                            remove_previous_line()
-                    else:
-                        if x_consecutive_entries_in_step(2, step):
-                            remove_previous_line()
+            if not after_warning():
+                if step == 'scan':
+                    if x_consecutive_entries_in_step(3, step):
+                        remove_previous_line()
+                else:
+                    if not state('verbose'):
+                        if step == 'stat':
+                            if not x_consecutive_entries_in_step(2, 'stat'):
+                                remove_previous_line()
+                        else:
+                            if x_consecutive_entries_in_step(2, step):
+                                remove_previous_line()
 
     string = f'{step}]{count}[{lvl}] {message}'
     log(f'[{uid + ':' if uid else ''}{string}', log_type)
