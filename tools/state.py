@@ -2,6 +2,7 @@ from tools.utils import get_settings
 
 _state = {
     'uid': '', # UID that represents the current execution. Not meant to be changed after its initial initialization
+    'headless': False,
     'printed': [], # Represents the step we're in, will be used if a SIGINT occurs
     'verbose': get_settings()['verbose'], # Defines if the printing function should overwrite the previous term line or not
     'backed_up': [], # Lists successfully backed up projects path
@@ -61,11 +62,10 @@ def set_printed(step, lvl):
         _state['printed'].pop(0)
 
 
-def flush_printed():
-    global _state
-    _state['printed'] = []
-
-
 def force_verbose():
     if not _state['verbose']:
         _state['verbose'] = True
+
+
+def activate_headless():
+    _state['headless'] = True

@@ -46,40 +46,42 @@ def print_term(step, lvl, message, *args, **kwargs):
         if 'input' in kwarg:
             u_input = True
 
-    set_printed(step, lvl)
-    if not lvl == 'E':
-        if not step == 'uninstall':
-            if not after_warning():
-                if step == 'scan':
-                    if x_consecutive_entries_in_step(3, step):
-                        remove_previous_line()
-                else:
-                    if not state('verbose'):
-                        if step == 'stat':
-                            if not x_consecutive_entries_in_step(2, 'stat'):
-                                remove_previous_line()
-                        else:
-                            if x_consecutive_entries_in_step(2, step):
-                                remove_previous_line()
-
     string = f'{step}]{count}[{lvl}] {message}'
-    log(f'[{uid + ':' if uid else ''}{string}', log_type)
-    string = f'[{string}'
-    if lvl == 'I':
-        if not u_input:
-            echo(string)
+    log(f'[{uid + ':' if uid else ''}{get_dt()}:{string}', log_type)
+
+    if not state('headless'):
+        set_printed(step, lvl)
+        if not lvl == 'E':
+            if not step == 'uninstall':
+                if not after_warning():
+                    if step == 'scan':
+                        if x_consecutive_entries_in_step(3, step):
+                            remove_previous_line()
+                    else:
+                        if not state('verbose'):
+                            if step == 'stat':
+                                if not x_consecutive_entries_in_step(2, 'stat'):
+                                    remove_previous_line()
+                            else:
+                                if x_consecutive_entries_in_step(2, step):
+                                    remove_previous_line()
+
+        string = f'[{string}'
+        if lvl == 'I':
+            if not u_input:
+                echo(string)
+            else:
+                return input(string)
         else:
-            return input(string)
-    else:
-        color = None
-        if lvl == 'E':
-            color = 'red'
-        if lvl == 'W':
-            color = 'bright_yellow'
-        if not u_input:
-            echo(click.style(string, fg=color))
-        else:
-            return input(click.style(string, fg=color))
+            color = None
+            if lvl == 'E':
+                color = 'red'
+            if lvl == 'W':
+                color = 'bright_yellow'
+            if not u_input:
+                echo(click.style(string, fg=color))
+            else:
+                return input(click.style(string, fg=color))
 
 
 def upload_archive(archive_path, expire_time):

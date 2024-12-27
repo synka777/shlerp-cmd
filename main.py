@@ -11,8 +11,8 @@ from tools.state import (
     append_state,
     incr_state,
     get_printed,
-    flush_printed,
-    force_verbose
+    force_verbose,
+    activate_headless
 )
 from tools.utils import (
     get_app_details,
@@ -336,7 +336,8 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
 @click.option('-ne', '--noexcl', default=False, is_flag=True, help=get_app_details()["options"]["noexcl"])
 @click.option('-ng', '--nogit', default=False, is_flag=True, help=get_app_details()["options"]["nogit"])
 @click.option('-kh', '--keephidden', default=False, is_flag=True, help=get_app_details()["options"]["keephidden"])
-def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, batch, archive):
+@click.option('-hl', '--headless', default=False, is_flag=True, help=get_app_details()["options"]["headless"])
+def main(path, output, archive, upload, rule, batch, dependencies, noexcl, nogit, keephidden, headless):
     """Dev projects backups made easy"""
 
     #####################
@@ -355,6 +356,9 @@ def main(path, output, rule, upload, dependencies, noexcl, nogit, keephidden, ba
 
     #####################
     # Options validation
+
+    if headless:
+        activate_headless()
 
     # Extended validation for the options that have a Click.path() type
     for opt in (('path', path), ('output', output)):

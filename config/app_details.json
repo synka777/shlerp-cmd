@@ -10,6 +10,7 @@
         "dependencies": "Include the folders marked as dependency folders in the duplication. Only works when using -a",
         "noexcl": "Disable the exclusion system inherent to each rule",
         "nogit": "Exclude git data from the backup",
-        "keephidden": "Include hidden files and folders in the backup (they are excluded by default, except for git-related ones)"
+        "keephidden": "Include hidden files and folders in the backup (they are excluded by default, except for git-related ones)",
+        "headless": "Run in headless mode; without displaying anything in the terminal"
     }
 }
