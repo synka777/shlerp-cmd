@@ -9,28 +9,57 @@ shlerp() {
     # Construct the command with the virtual environment activation
     cmd="source ${setup_dir}/venv/bin/activate && python3 ${setup_dir}/main.py"
 
-    # Check if the user has provided `-u`
-    if [[ "$@" == *"-u"* ]]; then
-        # Extract the argument immediately following `-u`
-        u_value=$(echo "$@" | awk 'BEGIN {found=0} {for (i=1; i<=NF; i++) {if (found == 1) {print $i; exit} if ($i == "-u") found=1}}')
+    # Initialize variables for -u and -p
+    u_flag=false
+    u_value=""
+    p_flag=false
+    p_value=""
 
-        if [[ -z "$u_value" || "$u_value" == -* ]]; then
-            # No value or next argument is another flag, use default from JSON
-            cmd+=" -u $upload_default_expiration"
-        else
-            # `-u` has a valid value; include it
-            cmd+=" -u $u_value"
-        fi
+    # Parse arguments
+    remaining_args=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -u)
+                u_flag=true
+                if [[ -n "$2" && "$2" != -* ]]; then
+                    u_value="$2"
+                    shift
+                else
+                    u_value="$upload_default_expiration"
+                fi
+                ;;
+            -p)
+                p_flag=true
+                if [[ -n "$2" && "$2" != -* ]]; then
+                    p_value="$2"
+                    shift
+                else
+                    p_value="$(pwd)"
+                fi
+                ;;
+            *)
+                remaining_args+=("$1")
+                ;;
+        esac
+        shift
+    done
+
+    # Add -u if specified
+    if $u_flag; then
+        cmd+=" -u $u_value"
     fi
 
-    # Add the current working directory as a parameter if '-p' is not specified
-    if [[ "$@" != *"-p"* ]]; then
+    # Add -p if not already specified
+    if $p_flag; then
+        cmd+=" -p $p_value"
+    else
         cmd+=" -p $(pwd)"
     fi
 
-    # Append remaining arguments while ignoring handled `-u`
-    remaining_args=$(echo "$@" | sed 's/-u[ ]*[^ ]*//')
-    cmd+=" $remaining_args"
+    # Append remaining arguments
+    for arg in "${remaining_args[@]}"; do
+        cmd+=" \"$arg\""
+    done
 
     # Execute the constructed command
     eval $cmd

@@ -4,7 +4,7 @@
         "path": "The path of the project we want to backup. If not provided the current working directory will be backed up",
         "output": "The location where we want to store the backup",
         "archive": "Archive the project folder instead of making a copy of it",
-        "upload": "Make an archive, upload it to file.io and get the download url. An optional validity period can be set following this pattern: ^[1-9]d*[y|Q|M|w|d|h|m|s]$",
+        "upload": "Make an archive (Max: 2GB), upload it to file.io and get the download url. An optional validity period can be set following this pattern: ^[1-9]d*[y|Q|M|w|d|h|m|s]$",
         "rule": "Manually specify a rule name if you want to skip the language detection process",
         "batch": "This option will consider all the sub-folders from the cwd as repositories and process it one by one. This is especially useful to backup all your projects on an another location.",
         "dependencies": "Include the folders marked as dependency folders in the duplication. Only works when using -a",

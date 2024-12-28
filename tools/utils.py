@@ -3,6 +3,7 @@ from os.path import exists
 from uuid import uuid4
 import random
 import subprocess
+import mimetypes
 import re
 import shutil
 import os
@@ -228,16 +229,31 @@ def iglob_hidden(*args, **kwargs):
         glob._ishidden = old_ishidden
 
 
-def get_file_size(archive_path):
-    try:
-        # Get the file size in bytes
-        file_size = os.path.getsize(archive_path)
-        # Convert the file size to megabytes
-        file_size_mb = file_size / (1024 * 1024)
-        return file_size_mb
-    except OSError as e:
-        # Handle the error if the file does not exist or is inaccessible
-        return {"error": str(e)}
+def is_archive(file_path):
+    """Check if a given path corresponds to an archive file.
+    :param file_path: Path to the file.
+    :return: True if the file is an archive, False otherwise.
+    """
+    # Ensure the file exists
+    if not os.path.isfile(file_path):
+        return False
+
+    # Check the MIME type of the file
+    mime_type, _ = mimetypes.guess_type(file_path)
+
+    # Common MIME types for archives
+    archive_mime_types = [
+        "application/zip",
+        "application/x-tar",
+        "application/x-gzip",
+        "application/x-bzip2",
+        "application/x-7z-compressed",
+        "application/x-rar-compressed",
+        "application/x-xz",
+    ]
+
+    # Return True if the MIME type matches known archive types
+    return mime_type in archive_mime_types
 
 
 def get_files(path, exclusions, options):

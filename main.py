@@ -16,7 +16,8 @@ from tools.state import (
 )
 from tools.utils import (
     get_app_details,
-    get_setup_fld
+    get_setup_fld,
+    is_archive
 )
 from tools.piputils import (
     print_term,
@@ -57,7 +58,6 @@ def auto_detect(proj_fld, uid):
     threshold_reached = False
     unclear = False
     threshold = 10  # Adapt it to match expected behavior
-    # set_state('step', 'scan')
 
     #####################
     # Step 1: Get the rules from the config & temporary file
@@ -347,6 +347,7 @@ def main(path, output, archive, upload, rule, batch, dependencies, noexcl, nogit
     curr_fld = None
     missing_value = False
     backup_sources = []
+    archiving_failed = False
     options = {
         'dependencies': dependencies,
         'noexcl': noexcl,
@@ -434,6 +435,11 @@ def main(path, output, archive, upload, rule, batch, dependencies, noexcl, nogit
                             uid)
                     append_state('ad_failures', batch_elem)
                     incr_state('total')
+            if is_archive(batch_elem):
+                backup_sources.append({
+                    'proj_fld': batch_elem,
+                    'already_archived': True # already_archived will either be True, or non-existent at all
+                })
 
     ################################################
     # 1 - Check options validity & prepare mandatory
@@ -471,7 +477,11 @@ def main(path, output, archive, upload, rule, batch, dependencies, noexcl, nogit
             backup['dst'] = f'{output}/{project_name}_{utils.get_dt()}'
     else:
         for backup in backup_sources:
-            backup['dst'] = f'{backup["proj_fld"]}_{utils.get_dt()}'
+            # If the current path to backup is already an archive, just set the  project folder as the backup dest.
+            # The goal is for the rest of the code to just use backup['dst'] instead of using a condition 
+            backup['dst'] = f'{backup['proj_fld']}_{utils.get_dt()}' \
+            if not backup.get('already_archived') \
+            else backup['proj_fld']
     # At this point we should have the dst incorporated into the backup_job list
 
     ####################################
@@ -480,7 +490,7 @@ def main(path, output, archive, upload, rule, batch, dependencies, noexcl, nogit
     incr_state('total', len(backup_sources))
     for backup in backup_sources:
         start_time = time.time()
-        show_state = [True if state('total') > 1 else False]
+        show_state = True if batch else False
         count = ''
         if show_state: # Used to display information
             count = f'{(len(state('backed_up')) + len(state('failures'))) + 1}/{state('total')}'
@@ -488,14 +498,14 @@ def main(path, output, archive, upload, rule, batch, dependencies, noexcl, nogit
         if batch: # Used to display information
             print_term('arch' if archive else 'copy', 'I', f'Processing: {backup['proj_fld']}', uid, cnt=count)
 
-        if archive:
+        if archive and not backup.get('already_archived'):
             # If --archive is provided to the script, we use make_archive()
             make_archive(
                 backup['proj_fld'], backup['dst'],
                 backup['rule'], options,
                 uid, start_time, count
             )
-        else:
+        if not archive:
             # Else if we don't want an archive we will do a copy of the project instead
             duplicate(
                 backup['proj_fld'], backup['dst'],
@@ -505,22 +515,31 @@ def main(path, output, archive, upload, rule, batch, dependencies, noexcl, nogit
 
         if is_upload:
             step = 'uplo'
-            if backup['proj_fld'] in state('backed_up'):
-                archive_size_mb = utils.get_file_size(f'{backup["dst"]}.zip')
+            zip_path = ''
+
+            # The zip file name has to be defined differently depending if the --path was already an archive or not
+            if backup.get('already_archived'):
+                zip_path = backup['dst']
+            elif backup['proj_fld'] in state('backed_up'):
+                zip_path = f'{backup['dst']}.zip'
+            else:
+                print_term(step, 'E', 'Archiving process failed - skipping upload', uid)
+                archiving_failed = True
+
+            if not archiving_failed:
+                archive_size_mb = utils.get_file_size(zip_path)
                 archive_size_gb = archive_size_mb / 1024  # Convert MB to GB
                 if archive_size_gb > 2:  # 2 GB limit
                     print_term(step, 'E', f'File size is too big: {archive_size_gb:.2f} GB', uid)
                 else:
-                    response = upload_archive(f'{backup["dst"]}.zip', expiration)
+                    response = upload_archive(zip_path, expiration)
                     json_resp = response.json()
                     if json_resp['success']:
                         expiry_message = time_until_expiry(json_resp['expires'])
-                        print_term(step, 'I', f'🔗 Single use: {json_resp["link"]} - {expiry_message}', uid)
+                        print_term(step, 'I', f'🔗 Single use: {json_resp["link"]} - {expiry_message}', uid, cnt=count)
                     else:
                         append_state('upload_failures', backup['proj_fld'])
-                        print_term(step, 'E', f'Upload failed: {json_resp["error"]}', uid)
-            else:
-                print_term(step, 'E', 'Archiving process failed - skipping upload', uid)
+                        print_term(step, 'E', f'Upload failed: {json_resp['error']}', uid, cnt=count)
 
         if batch:  # Used to display information
             failed_cnt = len(state('failures')) + len(state('ad_failures'))
