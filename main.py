@@ -404,7 +404,7 @@ def main(path, output, archive, upload, rule, batch, dependencies, noexcl, nogit
     #####################
     # Main logic
 
-    def get_sources(**kwargs):
+    def get_backup_sources(**kwargs):
         """Get the folder list to backup and scan each folder
         to determine the programming language/framework used
         """
@@ -446,7 +446,7 @@ def main(path, output, archive, upload, rule, batch, dependencies, noexcl, nogit
     #     variables for data processing
 
     if not rule:
-        get_sources()
+        get_backup_sources()
     else:
         # If a --rule has been provided by the user, check if it is valid
         with open(f'{get_setup_fld()}/rules.json', 'r') as read_file:
@@ -456,7 +456,7 @@ def main(path, output, archive, upload, rule, batch, dependencies, noexcl, nogit
                 if stored_rule['name'].lower() == str(rule).lower():
                     if batch:
                         
-                        get_sources(rule=stored_rule)
+                        get_backup_sources(rule=stored_rule)
                     else:
                         backup_sources.append({
                             'proj_fld': curr_fld,

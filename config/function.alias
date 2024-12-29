@@ -37,6 +37,9 @@ shlerp() {
                     p_value="$(pwd)"
                 fi
                 ;;
+            -h)
+                remaining_args+=("--help")
+                ;;
             *)
                 remaining_args+=("$1")
                 ;;

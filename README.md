@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="resources/rocket_shlerp.png" alt="shlerp logo" width="350">
+  <img src="resources/rocket_shlerp.png" alt="shlerp logo" width="250">
 </div>
 
 # shlerp-cmd
@@ -20,7 +20,7 @@ Normally if you need to provide a copy of the project you're currently working o
 - Python 3 (highly recommended)
 - Bash or Zsh (Windows shells & file system are not supported)
   
-Note: if you're using another UNIX/Linux shell than bash or zsh, you'll have to find a way to make the function in function.template available throughout your whole system.
+Note: if you're using another UNIX/Linux shell than bash or zsh, you'll have to find a way to make the function in function.alias available throughout your whole system.
 
 
 ## 🚀 Quickstart
@@ -60,10 +60,13 @@ shlerp -ng -a / shlerp --nogit --archive
 |--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | -p, --path PATH    | The path of the project we want to backup.  If not provided the current working directory will be backed up                                                                                                                                          |
 | -o, --output PATH  | The location where we want to store the backup                                                                                                                                      |
+| -a, --archive      | Archives the project folder instead of making a copy of it                                                                                                                          |
+| -u, --upload      | Make an archive (Max: 2GB), upload it to file.io and get the download url. Can be used as is, but a customized validity period can be set following this pattern: ^[1-9]d*[y|Q|M|w|d|h|m|s]$                                                                                                                        |
 | -r, --rule TEXT    | Manually specify a rule name if you want to skip the language detection process                                                                                                     |
+| -b, --batch        | This option will consider all the sub-folders from the cwd as repositories and process it one by one. This is especially useful to backup all your projects on an another location. |
 | -d, --dependencies | Include the folders marked as dependency folders in the duplication. Only works when using -a                                                                                      |
 | -ne, --noexcl      | Disable the exclusion system inherent to each rule                                                                                                                                 |
 | -ng, --nogit       | Exclude git data from the backup                                                                                                                                                   |
 | -kh, --keephidden  | Include hidden files and folders in the backup (they are excluded by default, except for git-related ones)                                                                                                               |
-| -b, --batch        | This option will consider all the sub-folders from the cwd as repositories and process it one by one. This is especially useful to backup all your projects on an another location. |
-| -a, --archive      | Archives the project folder instead of making a copy of it                                                                                                                          |
+| -hl, --headless  | Run in headless mode; without displaying anything in the terminal                                                                                                               |
+| -h, --help  | Shows this help menu with all the options that can be used                                                                                                                |

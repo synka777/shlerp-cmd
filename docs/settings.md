@@ -8,6 +8,7 @@ So as I'm writting this doc, the full settings file looks like this:
 ```
 {
     "rel_logs_path": ".local/logs",
+    "verbose": false,
     "logging": {
         "prune": {
             "enabled": true,
@@ -35,6 +36,7 @@ to specify where you want to store shlerp logs.
 
 ##### Note: These paths are relative to the home of the user you are currently using, so please ensure that you choose a location that is still under the home of your current user.
 
+```verbose```, which is disabled by default. Keeping this option disabled will limit the amount of information displayed in the terminal when shlerp is running, setting it to true will have the effect to show the files and folders that are being backed up.
 
 ###### 2/ Then, the```"logging"``` section
 lists parameters that are related to the logging behavior of shlerp. It is composed of two subsections:

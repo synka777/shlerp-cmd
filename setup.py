@@ -80,35 +80,32 @@ def setup():
 
                 with open(rc_file_abs, 'r') as read_rc:
                     write = True
-                    update = False
+                    update = True
                     read_rc = read_rc.readlines()
-                    source_line = f'source {setup_folder}/config/function.template'
+                    source_line = f'source {setup_folder}/config/function.alias'
                     filtered_lines = []
                     if read_rc:
                         for rc_line in read_rc:
                             # If we find a line that is already sourcing shlerp at any location
-                            if rc_line.startswith('source') and ('shlerp' and '/function.template') in rc_line:
+                            if rc_line.startswith('source') and ('shlerp' and '/function.alias') in rc_line:
                                 # Compare the location that's already sourced and the location from which we're running the new setup
                                 # If we're running the setup from the same location as the one that's already sourced, do nothing
                                 if rc_line == source_line:
                                     write = False
                                     setup_print('setup', 'I', '[1/2] OK: Alias function already installed')
                                     break
-                                else:
-                                    if not update:
-                                        update = True
                             else:
                                 filtered_lines.append(rc_line)
 
                         if write:
                             with open(rc_file_abs, 'w') as write_rc:
                                 # Rewrite the entire file but replace the old sourced line by the new one
-                                if update:
-                                    filtered_lines.append(source_line)
-
+                                alias_op_str = 'Updated alias into' if update else 'Alias added to'
+                                    
+                                filtered_lines.append(source_line)
                                 for filtered_line in filtered_lines:
                                     write_rc.write(filtered_line)
-                                setup_print('setup', 'I', f'[1/2] OK: Alias added to {rc_file}')
+                                setup_print('setup', 'I', f'[1/2] OK: {alias_op_str} {rc_file}')
 
         def check_deps(first_try):
             word = 'successfully'
