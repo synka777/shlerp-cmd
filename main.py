@@ -325,9 +325,33 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
         append_state('failures', proj_fld)
 
 
+def validate_path(ctx, param, value):
+    """Custom validator to ensure the target exists."""
+    if value:
+        path = os.path.abspath(value)
+        if exists(path):
+            archive = True if is_archive(path) else False
+            folder = True if os.path.isdir(path) else False
+            return {
+                'value': True,
+                'exists': True,
+                'path': path,
+                'archive': archive,
+                'folder': folder
+            }
+        else:
+            return {
+                'value': True,
+                'exists': False,
+                'path': path
+            }
+    else:
+        return {'value': False}
+
+
 @click.command(epilog=f'shlerp v{get_app_details()["proj_ver"]} - More details: https://github.com/synka777/shlerp-cmd')
-@click.option('-p', '--path', type=click.Path(), help=get_app_details()["options"]["path"])
-@click.option('-o', '--output', type=click.Path(), help=get_app_details()["options"]["output"])
+@click.option('-t', '--target', type=click.Path(), default=lambda: os.getcwd(), callback=validate_path, help=get_app_details()["options"]["target"])
+@click.option('-o', '--output', type=click.Path(), callback=validate_path, help=get_app_details()["options"]["output"])
 @click.option('-a', '--archive', default=False, is_flag=True, help=get_app_details()["options"]["archive"])
 @click.option('-u', '--upload', help=get_app_details()["options"]["upload"])
 @click.option('-r', '--rule', help=get_app_details()["options"]["rule"])
@@ -337,17 +361,16 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
 @click.option('-ng', '--nogit', default=False, is_flag=True, help=get_app_details()["options"]["nogit"])
 @click.option('-kh', '--keephidden', default=False, is_flag=True, help=get_app_details()["options"]["keephidden"])
 @click.option('-hl', '--headless', default=False, is_flag=True, help=get_app_details()["options"]["headless"])
-def main(path, output, archive, upload, rule, batch, dependencies, noexcl, nogit, keephidden, headless):
+def main(target, output, archive, upload, rule, batch, dependencies, noexcl, nogit, keephidden, headless):
     """Dev projects backups made easy"""
 
     #####################
     # Variables declaration
 
     exec_time = time.time()
-    curr_fld = None
-    missing_value = False
     backup_sources = []
     archiving_failed = False
+    bad_target = False
     options = {
         'dependencies': dependencies,
         'noexcl': noexcl,
@@ -358,25 +381,42 @@ def main(path, output, archive, upload, rule, batch, dependencies, noexcl, nogit
     #####################
     # Options validation
 
+    uid = utils.suid()
+    set_state('uid', uid)
+
     if headless:
         activate_headless()
 
-    # Extended validation for the options that have a Click.path() type
-    for opt in (('path', path), ('output', output)):
-        if opt[1]:
-            if not opt[1].startswith('-'):
-                if opt[0] == 'path':
-                    curr_fld = os.path.abspath(opt[1])
-            else:
-                print_term('prep', 'E', f'Missing value for {opt[0]}', uid)
-                missing_value = True
-    if missing_value:
-        exit(0)
-    if not path:
-        curr_fld = os.getcwd()
+    paths = []
+    def if_exists_add_key(param_dict, param_name):
+        if param_dict.get('value', True):
+            param_dict['opt'] = param_name
+            paths.append(param_dict)
+    if_exists_add_key(target, 'target')
+    if_exists_add_key(output, 'output')
 
-    uid = utils.suid()
-    set_state('uid', uid)
+    for path in paths:
+        if path['value']:
+            if path['exists']:
+                if path['archive']:
+                    if path['opt'] == 'target':
+                        if not upload:
+                            bad_target = True
+                    else:
+                        bad_target = True
+                else:
+                    if not path['folder']:
+                        bad_target = True
+                if bad_target:
+                    print_term('prep', 'E', f'The path provided for --{path['opt']} is not a folder {path['path']}', uid)
+                    exit(0)
+            else:
+                print_term('prep', 'E', f'The provided target for --{path['opt']} does not exist: {path['path']}', uid)
+                exit(0)
+        else:
+            print_term('prep', 'E', f'Missing value for --{path['opt']}', uid)
+            exit(0)
+
     if batch:
         force_verbose()
     if batch and not output:
@@ -410,9 +450,9 @@ def main(path, output, archive, upload, rule, batch, dependencies, noexcl, nogit
         """
         batch_list = []
         if batch:
-            batch_list = [f'{curr_fld}/{f}' for f in os.listdir(curr_fld)]
+            batch_list = [f'{target['path']}/{f}' for f in os.listdir(target)]
         else:
-            batch_list.append(curr_fld)
+            batch_list.append(target['path'])
 
         for batch_elem in batch_list:
             elem_rule = None
@@ -455,11 +495,10 @@ def main(path, output, archive, upload, rule, batch, dependencies, noexcl, nogit
             for stored_rule in rules:
                 if stored_rule['name'].lower() == str(rule).lower():
                     if batch:
-                        
                         get_backup_sources(rule=stored_rule)
                     else:
                         backup_sources.append({
-                            'proj_fld': curr_fld,
+                            'proj_fld': target['path'],
                             'rule': stored_rule
                         })
                     match = True
@@ -517,7 +556,7 @@ def main(path, output, archive, upload, rule, batch, dependencies, noexcl, nogit
             step = 'uplo'
             zip_path = ''
 
-            # The zip file name has to be defined differently depending if the --path was already an archive or not
+            # The zip file name has to be defined differently depending if the --target was already an archive or not
             if backup.get('already_archived'):
                 zip_path = backup['dst']
             elif backup['proj_fld'] in state('backed_up'):

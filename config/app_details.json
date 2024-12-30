@@ -1,7 +1,7 @@
 {
     "proj_ver": "1.5",
     "options": {
-        "path": "The path of the project we want to backup. If not provided the current working directory will be backed up",
+        "target": "The target we want to backup. If not provided, the current working directory will be backed up",
         "output": "The location where we want to store the backup",
         "archive": "Archive the project folder instead of making a copy of it",
         "upload": "Make an archive (Max: 2GB), upload it to file.io and get the download url. Can be used without providing any value, but a customized validity period can be set following this pattern: ^[1-9]d*[y|Q|M|w|d|h|m|s]$  (ex: 2h)",

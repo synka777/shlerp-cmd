@@ -58,7 +58,7 @@ shlerp -ng -a / shlerp --nogit --archive
 ## 🛠 Full option list
 | Option             |                                                                                                                                                                                     |
 |--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| -p, --path PATH    | The path of the project we want to backup.  If not provided the current working directory will be backed up                                                                                                                                          |
+| -t, --target PATH    | The path of the project we want to backup.  If not provided the current working directory will be backed up                                                                                                                                          |
 | -o, --output PATH  | The location where we want to store the backup                                                                                                                                      |
 | -a, --archive      | Archives the project folder instead of making a copy of it                                                                                                                          |
 | -u, --upload      | Make an archive (Max: 2GB), upload it to file.io and get the download url. Can be used as is, but a customized validity period can be set following this pattern: ^[1-9]d*[y|Q|M|w|d|h|m|s]$                                                                                                                        |

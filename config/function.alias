@@ -9,11 +9,9 @@ shlerp() {
     # Construct the command with the virtual environment activation
     cmd="source ${setup_dir}/venv/bin/activate && python3 ${setup_dir}/main.py"
 
-    # Initialize variables for -u and -p
+    # Initialize variables for -u and -t
     u_flag=false
     u_value=""
-    p_flag=false
-    p_value=""
 
     # Parse arguments
     remaining_args=()
@@ -26,15 +24,6 @@ shlerp() {
                     shift
                 else
                     u_value="$upload_default_expiration"
-                fi
-                ;;
-            -p)
-                p_flag=true
-                if [[ -n "$2" && "$2" != -* ]]; then
-                    p_value="$2"
-                    shift
-                else
-                    p_value="$(pwd)"
                 fi
                 ;;
             -h)
@@ -50,13 +39,6 @@ shlerp() {
     # Add -u if specified
     if $u_flag; then
         cmd+=" -u $u_value"
-    fi
-
-    # Add -p if not already specified
-    if $p_flag; then
-        cmd+=" -p $p_value"
-    else
-        cmd+=" -p $(pwd)"
     fi
 
     # Append remaining arguments
