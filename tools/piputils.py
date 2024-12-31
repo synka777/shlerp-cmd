@@ -42,12 +42,12 @@ def print_term(step, lvl, message, *args, **kwargs):
         uid = args[0]
     for kwarg, val in kwargs.items():
         if 'cnt' in kwarg and val != '':
-            count = f'[{kwargs['cnt']}]'
+            count = f'[{kwargs["cnt"]}]'
         if 'input' in kwarg:
             u_input = True
 
     string = f'{step}]{count}[{lvl}] {message}'
-    log(f'[{uid + ':' if uid else ''}{get_dt()}:{string}', log_type)
+    log(f'[{uid + ":" if uid else ""}{get_dt()}:{string}', log_type)
 
     if not state('headless'):
         set_printed(step, lvl)

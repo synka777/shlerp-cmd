@@ -80,7 +80,7 @@ def setup():
 
                 with open(rc_file_abs, 'r') as read_rc:
                     write = True
-                    update = True
+                    update = False
                     read_rc = read_rc.readlines()
                     source_line = f'source {setup_folder}/config/alias.sh'
                     filtered_lines = []
@@ -94,18 +94,20 @@ def setup():
                                     write = False
                                     setup_print('setup', 'I', '[1/2] OK: Alias function already installed')
                                     break
+                                else:
+                                    update = True
                             else:
                                 filtered_lines.append(rc_line)
 
                         if write:
                             with open(rc_file_abs, 'w') as write_rc:
                                 # Rewrite the entire file but replace the old sourced line by the new one
-                                alias_op_str = 'Updated alias into' if update else 'Alias added to'
-                                    
                                 filtered_lines.append(source_line)
+                                op_str = 'updated in' if update else 'added to'
+
                                 for filtered_line in filtered_lines:
                                     write_rc.write(filtered_line)
-                                setup_print('setup', 'I', f'[1/2] OK: {alias_op_str} {rc_file}')
+                                setup_print('setup', 'I', f'[1/2] OK: Alias {op_str} {rc_file}')
 
         def check_deps(first_try):
             word = 'successfully'
@@ -133,4 +135,3 @@ def setup():
 
 if __name__ == '__main__':
     setup()
-

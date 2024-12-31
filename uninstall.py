@@ -8,7 +8,7 @@ import subprocess
 
 
 def uninstall():
-    home = os.path.expanduser("~")
+    home = os.path.expanduser('~')
     setup_folder = get_setup_fld()
 
     shell = environ['SHELL']
@@ -28,7 +28,7 @@ def uninstall():
                 with open(tmp_rc_path, 'w') as write_tmp_rc:
                     write_tmp_rc.write(cleaned_rc)
                 if exists(tmp_rc_path):
-                    subprocess.run(["mv", tmp_rc_path, rc_file_path])
+                    subprocess.run(['mv', tmp_rc_path, rc_file_path])
             else:
                 double_check = False
                 print_term('uninstall', 'I', f'[1/2] OK: Function not found in {rc_file}')

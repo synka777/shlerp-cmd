@@ -426,13 +426,13 @@ def main(target, output, archive, upload, rule, batch, dependencies, noexcl, nog
                     if not path['folder']:
                         bad_target = True
                 if bad_target:
-                    print_term('prep', 'E', f'The path provided for --{path['opt']} is not a folder {path['path']}', uid)
+                    print_term('prep', 'E', f'The path provided for --{path["opt"]} is not a folder {path["path"]}', uid)
                     exit(0)
             else:
-                print_term('prep', 'E', f'The provided target for --{path['opt']} does not exist: {path['path']}', uid)
+                print_term('prep', 'E', f'The provided target for --{path["opt"]} does not exist: {path["path"]}', uid)
                 exit(0)
         else:
-            print_term('prep', 'E', f'Missing value for --{path['opt']}', uid)
+            print_term('prep', 'E', f'Missing value for --{path["opt"]}', uid)
             exit(0)
 
     if batch:
@@ -468,7 +468,7 @@ def main(target, output, archive, upload, rule, batch, dependencies, noexcl, nog
         """
         batch_list = []
         if batch:
-            batch_list = [f'{target['path']}/{f}' for f in os.listdir(target)]
+            batch_list = [f'{target["path"]}/{f}' for f in os.listdir(target['path'])]
         else:
             batch_list.append(target['path'])
 
@@ -494,10 +494,11 @@ def main(target, output, archive, upload, rule, batch, dependencies, noexcl, nog
                     append_state('ad_failures', batch_elem)
                     incr_state('total')
             if is_archive(batch_elem):
-                backup_sources.append({
-                    'proj_fld': batch_elem,
-                    'already_archived': True # already_archived will either be True, or non-existent at all
-                })
+                if upload:
+                    backup_sources.append({
+                        'proj_fld': batch_elem,
+                        'already_archived': True # already_archived will either be True, or non-existent at all
+                    })
 
     ################################################
     # 1 - Check options validity & prepare mandatory
@@ -536,7 +537,7 @@ def main(target, output, archive, upload, rule, batch, dependencies, noexcl, nog
         for backup in backup_sources:
             # If the current path to backup is already an archive, just set the  project folder as the backup dest.
             # The goal is for the rest of the code to just use backup['dst'] instead of using a condition 
-            backup['dst'] = f'{backup['proj_fld']}_{utils.get_dt()}' \
+            backup['dst'] = f'{backup["proj_fld"]}_{utils.get_dt()}' \
             if not backup.get('already_archived') \
             else backup['proj_fld']
     # At this point we should have the dst incorporated into the backup_job list
@@ -550,10 +551,10 @@ def main(target, output, archive, upload, rule, batch, dependencies, noexcl, nog
         show_state = True if batch else False
         count = ''
         if show_state: # Used to display information
-            count = f'{(len(state('backed_up')) + len(state('failures'))) + 1}/{state('total')}'
+            count = f'{(len(state("backed_up")) + len(state("failures"))) + 1}/{state("total")}'
 
         if batch: # Used to display information
-            print_term('arch' if archive else 'copy', 'I', f'Processing: {backup['proj_fld']}', uid, cnt=count)
+            print_term('arch' if archive else 'copy', 'I', f'Processing: {backup["proj_fld"]}', uid, cnt=count)
 
         if archive and not backup.get('already_archived'):
             # If --archive is provided to the script, we use make_archive()
@@ -578,7 +579,7 @@ def main(target, output, archive, upload, rule, batch, dependencies, noexcl, nog
             if backup.get('already_archived'):
                 zip_path = backup['dst']
             elif backup['proj_fld'] in state('backed_up'):
-                zip_path = f'{backup['dst']}.zip'
+                zip_path = f'{backup["dst"]}.zip'
             else:
                 print_term(step, 'E', 'Archiving process failed - skipping upload', uid)
                 archiving_failed = True
@@ -596,7 +597,7 @@ def main(target, output, archive, upload, rule, batch, dependencies, noexcl, nog
                         print_term(step, 'I', f'🔗 Single use: {json_resp["link"]} - {expiry_message}', uid, cnt=count)
                     else:
                         append_state('upload_failures', backup['proj_fld'])
-                        print_term(step, 'E', f'Upload failed: {json_resp['error']}', uid, cnt=count)
+                        print_term(step, 'E', f'Upload failed: {json_resp["error"]}', uid, cnt=count)
 
         if batch:  # Used to display information
             failed_cnt = len(state('failures')) + len(state('ad_failures'))
@@ -608,16 +609,16 @@ def main(target, output, archive, upload, rule, batch, dependencies, noexcl, nog
                 step = 'stat'
                 summary = f'Successful: {backed_up_cnt}, - ' \
                         f'Failed: {failed_cnt}, - ' \
-                        f'Total runtime: {'%.2f' % (time.time() - exec_time)}s'
+                        f'Total runtime: {"%.2f" % (time.time() - exec_time)}s'
                 # Display which kind of operation has been done during current execution
                 operation = 'Upload' if upload else 'Archive' if archive else 'Copy'
                 print_term(step, 'I', summary, uid)
                 if len(state('ad_failures')) > 0:
-                    print_term(step, 'W', f'Detection failures: {state('ad_failures')}', uid)
+                    print_term(step, 'W', f'Detection failures: {state("ad_failures")}', uid)
                 if len(state('failures')) > 0:
-                    print_term(step, 'W', operation, f'Backup failures: {state('failures')}', uid)
+                    print_term(step, 'W', operation, f'Backup failures: {state("failures")}', uid)
                 if len(state('upload_failures')) > 0:
-                    print_term(step, 'W', f'Upload failures: {state('upload_failures')}', uid)
+                    print_term(step, 'W', f'Upload failures: {state("upload_failures")}', uid)
 
 
 def handle_sigint(signalnum, frame):
