@@ -82,12 +82,12 @@ def setup():
                     write = True
                     update = True
                     read_rc = read_rc.readlines()
-                    source_line = f'source {setup_folder}/config/function.alias'
+                    source_line = f'source {setup_folder}/config/alias.sh'
                     filtered_lines = []
                     if read_rc:
                         for rc_line in read_rc:
                             # If we find a line that is already sourcing shlerp at any location
-                            if rc_line.startswith('source') and ('shlerp' and '/function.alias') in rc_line:
+                            if rc_line.startswith('source') and ('shlerp' and '/alias.sh') in rc_line:
                                 # Compare the location that's already sourced and the location from which we're running the new setup
                                 # If we're running the setup from the same location as the one that's already sourced, do nothing
                                 if rc_line == source_line:

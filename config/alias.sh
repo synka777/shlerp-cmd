@@ -3,13 +3,10 @@ shlerp() {
     script_dir="$(cd "$(dirname "${(%):-%x}")" && pwd)"
     setup_dir="$(cd "$script_dir/.." && pwd)"  # Move up one level to the project root
 
-    # Read the default expiration value from the JSON file
-    upload_default_expiration=$(jq -r '.upload_default.expiration' "$setup_dir/config/settings.json")
-    
     # Construct the command with the virtual environment activation
     cmd="source ${setup_dir}/venv/bin/activate && python3 ${setup_dir}/main.py"
 
-    # Initialize variables for -u and -t
+    # Initialize variables for -u
     u_flag=false
     u_value=""
 
@@ -23,7 +20,7 @@ shlerp() {
                     u_value="$2"
                     shift
                 else
-                    u_value="$upload_default_expiration"
+                    u_value="default"
                 fi
                 ;;
             -h)

@@ -20,7 +20,7 @@ Normally if you need to provide a copy of the project you're currently working o
 - Python 3 (highly recommended)
 - Bash or Zsh (Windows shells & file system are not supported)
   
-Note: if you're using another UNIX/Linux shell than bash or zsh, you'll have to find a way to make the function in function.alias available throughout your whole system.
+Note: if you're using another UNIX/Linux shell than bash or zsh, you'll have to find a way to make the function in alias.sh available throughout your whole system.
 
 
 ## 🚀 Quickstart

@@ -5,6 +5,7 @@ Released under the GNU Affero General Public License v3.0
 """
 
 import click
+from click.core import ParameterSource
 from tools.state import (
     state,
     set_state,
@@ -17,7 +18,8 @@ from tools.state import (
 from tools.utils import (
     get_app_details,
     get_setup_fld,
-    is_archive
+    is_archive,
+    get_settings
 )
 from tools.piputils import (
     print_term,
@@ -325,6 +327,21 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
         append_state('failures', proj_fld)
 
 
+def set_upload_expiration(ctx, param, value):
+    """Callback to fetch default expiration from settings.json if `-u` is used without a value."""
+    opt_origin = ctx.get_parameter_source(param.name)
+    # If the option as actually been used by the user
+    if opt_origin == ParameterSource.COMMANDLINE:
+        # Check if a value has actually been passed other than default.
+        if value != 'default':
+            return value
+        else:
+            # Load default from settings if no value provided
+            return get_settings()['upload_default']['expiration']
+    else:
+        return None
+
+
 def validate_path(ctx, param, value):
     """Custom validator to ensure the target exists."""
     if value:
@@ -346,14 +363,14 @@ def validate_path(ctx, param, value):
                 'path': path
             }
     else:
-        return {'value': False}
+        return None
 
 
 @click.command(epilog=f'shlerp v{get_app_details()["proj_ver"]} - More details: https://github.com/synka777/shlerp-cmd')
 @click.option('-t', '--target', type=click.Path(), default=lambda: os.getcwd(), callback=validate_path, help=get_app_details()["options"]["target"])
 @click.option('-o', '--output', type=click.Path(), callback=validate_path, help=get_app_details()["options"]["output"])
 @click.option('-a', '--archive', default=False, is_flag=True, help=get_app_details()["options"]["archive"])
-@click.option('-u', '--upload', help=get_app_details()["options"]["upload"])
+@click.option('-u', '--upload', callback=set_upload_expiration, help=get_app_details()["options"]["upload"])
 @click.option('-r', '--rule', help=get_app_details()["options"]["rule"])
 @click.option('-b', '--batch', default=False, is_flag=True, help=get_app_details()["options"]["batch"])
 @click.option('-d', '--dependencies', default=False, is_flag=True, help=get_app_details()["options"]["dependencies"])
@@ -389,9 +406,10 @@ def main(target, output, archive, upload, rule, batch, dependencies, noexcl, nog
 
     paths = []
     def if_exists_add_key(param_dict, param_name):
-        if param_dict.get('value', True):
-            param_dict['opt'] = param_name
-            paths.append(param_dict)
+        if param_dict:
+            if param_dict.get('value', True):
+                param_dict['opt'] = param_name
+                paths.append(param_dict)
     if_exists_add_key(target, 'target')
     if_exists_add_key(output, 'output')
 
@@ -510,7 +528,7 @@ def main(target, output, archive, upload, rule, batch, dependencies, noexcl, nog
 
     # If we don't have a particular output folder, use the same as the project
     if output:
-        output = os.path.abspath(output)
+        output = os.path.abspath(output['path'])
         for backup in backup_sources:
             project_name = backup['proj_fld'].split('/')[-1]
             backup['dst'] = f'{output}/{project_name}_{utils.get_dt()}'
