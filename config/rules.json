@@ -110,8 +110,8 @@
                 "after":[],
                 "exclude":{
                     "files":[],
-                    "folders":["venv", "__pycache__"],
-                    "dep_folder": null
+                    "folders":["__pycache__"],
+                    "dep_folder": "venv"
                 }
             }
         },

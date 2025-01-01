@@ -1,5 +1,10 @@
+<div align="center">
+  <img src="../resources/rocket_shlerp.png" alt="shlerp logo" width="250">
+</div>
+
+
 # shlerp-cmd
-[![](https://img.shields.io/static/v1?label=Status&message=Ongoing&color=green)](#) [![](https://img.shields.io/static/v1?label=Python&message=v3.9&color=blue)](#) [![](https://img.shields.io/static/v1?label=Click&message=v8.1.3&color=purple)](#)
+[![](https://img.shields.io/static/v1?label=Platform&message=Linux%20%7C%20macOS&color=deeppink)](#) [![](https://img.shields.io/static/v1?label=Python&message=v3.9%2B&color=blue)](#) [![](https://img.shields.io/static/v1?label=Click&message=v8.1.7&color=purple)](#)
 ___
 
 ### The language/framework auto-detection system in detail
@@ -126,11 +131,8 @@ Framework rules processing:
 			- Go to next step: Vanilla rules processing
 
 Vanilla rules processing:
-- A vanilla rule from the history reaches the threshold => Go to END
-- Threshold not reached with the Vanilla rules from the history:
-	- Try again but with the whole Vanilla ruleset
-		- Threshold reached => Go to END
-		- Threshold not reached  => ERROR => Go to END
+- Scan the folder to backup with each Vanilla rule.
+- The rule that scored the most weight (by matching the most files & folders) wins.
 END
 ```
 Why is it designed like this? Because of runtime issues. The runtime is greatly enhanced if you don't have to go through the whole ruleset each and every time you run the script, especially if your ruleset is quite large.

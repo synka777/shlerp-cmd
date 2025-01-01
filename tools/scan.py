@@ -78,13 +78,15 @@ def vanilla_processing(_rules, threshold, proj_fld, uid):
     """
     print_term('scan', 'I', 'Crawling...', uid)
     leads = utils.crawl_for_weight(proj_fld, _rules['vanilla'])
+    for l in leads: print(l['name'], l['total'] )
     # If the weight of the rule that has the heaviest score is lighter than the threshold,
     # We empty the leads list
     _elected_rule = utils.elect(leads)
     if not _elected_rule:
         leads = list([])
     else:
-        leads = list([]) if _elected_rule[0]['total'] < threshold else list([_elected_rule[0]])
+        # leads = list([]) if _elected_rule[0]['total'] < threshold else list([_elected_rule[0]])
+        leads = list([_elected_rule[0]])
     return leads
 
 
