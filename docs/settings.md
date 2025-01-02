@@ -9,6 +9,7 @@ So as I'm writting this doc, the full settings file looks like this:
 {
     "rel_logs_path": ".local/logs",
     "verbose": false,
+    "debug_scan": false,
     "logging": {
         "prune": {
             "enabled": true,
@@ -34,9 +35,11 @@ Let's dive into what these parameters do.
 ```"rel_logs_path```, which is used by the logging function that is defined in /tools/utils.py. It can be edited 
 to specify where you want to store shlerp logs.
 
-##### Note: These paths are relative to the home of the user you are currently using, so please ensure that you choose a location that is still under the home of your current user.
+##### Note: Please make sure that shlerp will have the rights to write into this location.
 
-```verbose```, which is disabled by default. Keeping this option disabled will limit the amount of information displayed in the terminal when shlerp is running, setting it to true will have the effect to show the files and folders that are being backed up.
+```verbose```, which is disabled by default. Keeping this option disabled will limit the amount of information displayed in the terminal when shlerp is running, setting it to true will have the effect to show the files and folders that are being backed up. Will be overridden by debug_scan if debug_scan is activated.
+
+```debug_scan```, which is helpful if you want to know what is happening during the scan process. Will be helpful to follow what is happening when adding new rules into the ruleset, for example. 
 
 ###### 2/ Then, the```"logging"``` section
 lists parameters that are related to the logging behavior of shlerp. It is composed of two subsections:

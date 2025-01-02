@@ -542,83 +542,83 @@ def main(target, output, archive, upload, rule, batch, dependencies, noexcl, nog
             else backup['proj_fld']
     # At this point we should have the dst incorporated into the backup_job list
 
-    ####################################
+    ###################################
     # 2 - Data processing, show progress 
+    if not state('debug'):
+        incr_state('total', len(backup_sources))
+        for backup in backup_sources:
+            start_time = time.time()
+            show_state = True if batch else False
+            count = ''
+            if show_state: # Used to display information
+                count = f'{(len(state("backed_up")) + len(state("failures"))) + 1}/{state("total")}'
 
-    incr_state('total', len(backup_sources))
-    for backup in backup_sources:
-        start_time = time.time()
-        show_state = True if batch else False
-        count = ''
-        if show_state: # Used to display information
-            count = f'{(len(state("backed_up")) + len(state("failures"))) + 1}/{state("total")}'
+            if batch: # Used to display information
+                print_term('arch' if archive else 'copy', 'I', f'Processing: {backup["proj_fld"]}', uid, cnt=count)
 
-        if batch: # Used to display information
-            print_term('arch' if archive else 'copy', 'I', f'Processing: {backup["proj_fld"]}', uid, cnt=count)
+            if archive and not backup.get('already_archived'):
+                # If --archive is provided to the script, we use make_archive()
+                make_archive(
+                    backup['proj_fld'], backup['dst'],
+                    backup['rule'], options,
+                    uid, start_time, count
+                )
+            if not archive:
+                # Else if we don't want an archive we will do a copy of the project instead
+                duplicate(
+                    backup['proj_fld'], backup['dst'],
+                    backup['rule'], options,
+                    uid, start_time, count
+                )
 
-        if archive and not backup.get('already_archived'):
-            # If --archive is provided to the script, we use make_archive()
-            make_archive(
-                backup['proj_fld'], backup['dst'],
-                backup['rule'], options,
-                uid, start_time, count
-            )
-        if not archive:
-            # Else if we don't want an archive we will do a copy of the project instead
-            duplicate(
-                backup['proj_fld'], backup['dst'],
-                backup['rule'], options,
-                uid, start_time, count
-            )
+            if is_upload:
+                step = 'uplo'
+                zip_path = ''
 
-        if is_upload:
-            step = 'uplo'
-            zip_path = ''
-
-            # The zip file name has to be defined differently depending if the --target was already an archive or not
-            if backup.get('already_archived'):
-                zip_path = backup['dst']
-            elif backup['proj_fld'] in state('backed_up'):
-                zip_path = f'{backup["dst"]}.zip'
-            else:
-                print_term(step, 'E', 'Archiving process failed - skipping upload', uid)
-                archiving_failed = True
-
-            if not archiving_failed:
-                archive_size_mb = utils.get_file_size(zip_path)
-                archive_size_gb = archive_size_mb / 1024  # Convert MB to GB
-                if archive_size_gb > 2:  # 2 GB limit
-                    print_term(step, 'E', f'File size is too big: {archive_size_gb:.2f} GB', uid)
+                # The zip file name has to be defined differently depending if the --target was already an archive or not
+                if backup.get('already_archived'):
+                    zip_path = backup['dst']
+                elif backup['proj_fld'] in state('backed_up'):
+                    zip_path = f'{backup["dst"]}.zip'
                 else:
-                    response = upload_archive(zip_path, expiration)
-                    json_resp = response.json()
-                    if json_resp['success']:
-                        expiry_message = time_until_expiry(json_resp['expires'])
-                        print_term(step, 'I', f'🔗 Single use: {json_resp["link"]} - {expiry_message}', uid, cnt=count)
+                    print_term(step, 'E', 'Archiving process failed - skipping upload', uid)
+                    archiving_failed = True
+
+                if not archiving_failed:
+                    archive_size_mb = utils.get_file_size(zip_path)
+                    archive_size_gb = archive_size_mb / 1024  # Convert MB to GB
+                    if archive_size_gb > 2:  # 2 GB limit
+                        print_term(step, 'E', f'File size is too big: {archive_size_gb:.2f} GB', uid)
                     else:
-                        append_state('upload_failures', backup['proj_fld'])
-                        print_term(step, 'E', f'Upload failed: {json_resp["error"]}', uid, cnt=count)
+                        response = upload_archive(zip_path, expiration)
+                        json_resp = response.json()
+                        if json_resp['success']:
+                            expiry_message = time_until_expiry(json_resp['expires'])
+                            print_term(step, 'I', f'🔗 Single use: {json_resp["link"]} - {expiry_message}', uid, cnt=count)
+                        else:
+                            append_state('upload_failures', backup['proj_fld'])
+                            print_term(step, 'E', f'Upload failed: {json_resp["error"]}', uid, cnt=count)
 
-        if batch:  # Used to display information
-            failed_cnt = len(state('failures')) + len(state('ad_failures'))
-            backed_up_cnt = len(state('backed_up'))
+            if batch:  # Used to display information
+                failed_cnt = len(state('failures')) + len(state('ad_failures'))
+                backed_up_cnt = len(state('backed_up'))
 
-            # This condition is there to make sure we got through the whole list of projects
-            # before displaying the stats
-            if backed_up_cnt + failed_cnt == state('total'):
-                step = 'stat'
-                summary = f'Successful: {backed_up_cnt}, - ' \
-                        f'Failed: {failed_cnt}, - ' \
-                        f'Total runtime: {"%.2f" % (time.time() - exec_time)}s'
-                # Display which kind of operation has been done during current execution
-                operation = 'Upload' if upload else 'Archive' if archive else 'Copy'
-                print_term(step, 'I', summary, uid)
-                if len(state('ad_failures')) > 0:
-                    print_term(step, 'W', f'Detection failures: {state("ad_failures")}', uid)
-                if len(state('failures')) > 0:
-                    print_term(step, 'W', operation, f'Backup failures: {state("failures")}', uid)
-                if len(state('upload_failures')) > 0:
-                    print_term(step, 'W', f'Upload failures: {state("upload_failures")}', uid)
+                # This condition is there to make sure we got through the whole list of projects
+                # before displaying the stats
+                if backed_up_cnt + failed_cnt == state('total'):
+                    step = 'stat'
+                    summary = f'Successful: {backed_up_cnt} - ' \
+                            f'Failed: {failed_cnt} - ' \
+                            f'Total runtime: {"%.2f" % (time.time() - exec_time)}s'
+                    # Display which kind of operation has been done during current execution
+                    operation = 'Upload' if upload else 'Archive' if archive else 'Copy'
+                    print_term(step, 'I', summary, uid)
+                    if len(state('ad_failures')) > 0:
+                        print_term(step, 'W', f'Detection failures: {state("ad_failures")}', uid)
+                    if len(state('failures')) > 0:
+                        print_term(step, 'W', operation, f'Backup failures: {state("failures")}', uid)
+                    if len(state('upload_failures')) > 0:
+                        print_term(step, 'W', f'Upload failures: {state("upload_failures")}', uid)
 
 
 def handle_sigint(signalnum, frame):

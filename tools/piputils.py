@@ -1,7 +1,7 @@
 ########################################################
 # This file features functions that need pip packages
 # and won't be used in the setup script as there aren't
-# any virtual environments installed at first
+# any virtual environments installed at first.
 
 from tools.state import (
     state,
@@ -34,9 +34,7 @@ def print_term(step, lvl, message, *args, **kwargs):
     u_input = False
     count = ''
     log_type = 'exec'
-    if step == 'setup':
-        log_type = step
-    if step == 'uninstall':
+    if step in ['setup', 'uninstall']:
         log_type = step
     if len(args) > 0:
         uid = args[0]
@@ -47,7 +45,8 @@ def print_term(step, lvl, message, *args, **kwargs):
             u_input = True
 
     string = f'{step}]{count}[{lvl}] {message}'
-    log(f'[{uid + ":" if uid else ""}{get_dt()}:{string}', log_type)
+    if not state('debug'):
+        log(f'[{uid + ":" if uid else ""}{get_dt()}:{string}', log_type)
 
     if not state('headless'):
         set_printed(step, lvl)
@@ -78,6 +77,8 @@ def print_term(step, lvl, message, *args, **kwargs):
                 color = 'red'
             if lvl == 'W':
                 color = 'bright_yellow'
+            if lvl == 'D':
+                color = 'cyan'
             if not u_input:
                 echo(click.style(string, fg=color))
             else:

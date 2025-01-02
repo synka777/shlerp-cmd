@@ -48,7 +48,13 @@
                         "weight":8
                     }
                 ],
-                "folders":[]
+                "folders":[
+                    {
+                        "name":"node_modules",
+                        "files":[],
+                        "weight":2
+                    }
+                ]
             },
             "actions":{
                 "before":[],

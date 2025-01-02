@@ -3,8 +3,9 @@ from tools.utils import get_settings
 _state = {
     'uid': '', # UID that represents the current execution. Not meant to be changed after its initial initialization
     'headless': False,
+    'debug': get_settings()['debug_scan'],
+    'verbose': get_settings()['verbose'] if not get_settings()['debug_scan'] else True, # Defines if the printing function should overwrite the previous term line or not
     'printed': [], # Represents the step we're in, will be used if a SIGINT occurs
-    'verbose': get_settings()['verbose'], # Defines if the printing function should overwrite the previous term line or not
     'backed_up': [], # Lists successfully backed up projects path
     'failures': [], # Lists the projects that couldn't be backed up
     'ad_failures': [], # Lists the paths for which the autodetection failed

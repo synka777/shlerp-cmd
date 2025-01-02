@@ -325,22 +325,6 @@ def elect(leads):
     return None if len(winner) == 0 else winner
 
 
-def crawl_for_weight(proj_fld, rules):
-    """Crawl the project to find files matching the extensions we provide to this function
-    :param proj_fld: text, the folder we want to process
-    :param rules: object list containing languages names, extensions to crawl and weights
-    :return: an updated list with some more weight (hopefully)
-    """
-    for rule in rules:
-        if 'total' not in rule.keys():
-            rule['total'] = 0
-        for ext_elem in rule['detect']['extensions']:
-            for ext in ext_elem['names']:
-                for _ in glob.iglob(f'{proj_fld}/**/{ext}', recursive=True):
-                    rule['total'] += ext_elem['weight']
-    return rules
-
-
 def enforce_limit(history_file, settings):
     """Shortens the history if it is too long compared to history_limit parameters.
     Can happen if these parameters have been reduced between two shlerp script executions
