@@ -266,14 +266,16 @@ def get_files(path, exclusions, options):
     if options['nogit']:
         exclusions['folders'].append('.git')
         exclusions['files'].append('.gitignore')
+    # If the noexcl option is set to True, we return all the files in the folder except the dependency folder
     if options['noexcl']:
         return [
             file for file in os.listdir(path)
-            if (exclusions['dep_folder'] and file != exclusions['dep_folder'])
-                or not exclusions['dep_folder']
+            if (exclusions.get('dep_folders', []) \
+                and file not in exclusions.get('dep_folders', []))
+                or not exclusions.get('dep_folders', [])
         ]
     elem_list = []
-    dep_fld = exclusions['dep_folder']
+    dep_folders = exclusions.get('dep_folders', []) or []
     for elem in os.listdir(path):
         excl_matched = False
         if (
@@ -291,7 +293,7 @@ def get_files(path, exclusions, options):
                     if fld_excl in elem:
                         excl_matched = True
                         break
-            if dep_fld and dep_fld in elem:
+            if dep_folders and elem in dep_folders:
                 excl_matched = True
             if not excl_matched:
                 elem_list.append(elem)
@@ -301,7 +303,7 @@ def get_files(path, exclusions, options):
                     if file_excl in elem:
                         excl_matched = True
                         break
-            if dep_fld and dep_fld in elem:
+            if dep_folders and elem in dep_folders:
                 excl_matched = True
             if not excl_matched:
                 elem_list.append(elem)

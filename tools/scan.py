@@ -59,14 +59,14 @@ def frameworks_processing(rules, proj_fld):
             rule_threshold = 0
             excl_obj = _rule['actions']['exclude']
             exclusions = excl_obj[type]
-            dep_folder = excl_obj['dep_folder']
+            dep_folders = excl_obj.get('dep_folders', []) or []
             name_key = 'name' if type == 'folders' else 'names'
             
             for criteria in _rule['detect'][type]:
                 criteria_names = criteria[name_key] if type == 'files' else [criteria['name']]
                 add = True
                 for file_name in criteria_names:
-                    if type == 'folders' and file_name == dep_folder:
+                    if type == 'folders' and file_name in dep_folders:
                         add = False
                     if file_name in exclusions:
                         add = False
@@ -87,7 +87,7 @@ def frameworks_processing(rules, proj_fld):
     return utils.elect(_fw_leads)
 
 
-def vanilla_processing(_rules, threshold, proj_fld, uid):
+def vanilla_processing(_rules, proj_fld, uid):
     """This function is scanning the project folder to backup and compares its content with the rules
     defined in the vanilla section of the rules file.
     :return: A list containing the "vanilla" rule that matches the most with the project, can return

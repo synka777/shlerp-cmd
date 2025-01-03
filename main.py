@@ -59,7 +59,6 @@ def auto_detect(proj_fld, uid):
     framework_matched = False
     threshold_reached = False
     unclear = False
-    threshold = 10  # Adapt it to match expected behavior
 
     #####################
     # Step 1: Get the rules from the config & temporary file
@@ -129,7 +128,7 @@ def auto_detect(proj_fld, uid):
         # 3-1: Using the history
         if recent_rules:
             print_term('scan', 'I', 'Evaluating vanilla history...', uid)
-            v_leads = vanilla_processing(recent_rules, threshold, proj_fld, uid)
+            v_leads = vanilla_processing(recent_rules, proj_fld, uid)
             if len(v_leads) > 0:
                 threshold_reached = True
 
@@ -137,7 +136,7 @@ def auto_detect(proj_fld, uid):
         if not threshold_reached:
             remaining_rules['vanilla'] = prune_tried_rules(rules, tmp_file, 'vanilla')
             print_term('scan', 'I', 'Evaluating vanilla rules...', uid)
-            v_leads = vanilla_processing(remaining_rules, threshold, proj_fld, uid)
+            v_leads = vanilla_processing(remaining_rules, proj_fld, uid)
 
         if v_leads and len(v_leads) > 1:
             unclear = True
@@ -181,7 +180,7 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
             proceed = True
             output = True
             exclusions = rule['actions']['exclude']
-            dep_folder = exclusions['dep_folder']
+            dep_folders = exclusions.get('dep_folders', []) or []
             if options['nogit']:
                 exclusions['folders'].append('.git')
                 exclusions['files'].append('.gitignore')
@@ -194,7 +193,7 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
                 proceed = True
             else:
                 if os.path.isdir(elem_name):
-                    if dep_folder and dep_folder in rel_name:
+                    if dep_folders and rel_name in dep_folders:
                         proceed = False
                     if exclusions['folders']:
                         for fld_excl in exclusions['folders']:
@@ -205,7 +204,7 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
                         for file_excl in exclusions['files']:
                             if (
                                     file_excl == rel_name.split('/')[-1] or
-                                    (dep_folder and dep_folder in rel_name)
+                                    (dep_folders and rel_name in dep_folders)
                             ):
                                 proceed = False
                     if exclusions['folders']:
@@ -286,17 +285,18 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
     :param started: number representing the time when the script has been executed
     :param count: string that represents nothing or the current count out of a total of backups to process
     """
-    try:
-        fld_count = file_count = symlink_count = 0
-        exclusions = rule['actions']['exclude']
-        elem_list = utils.get_files(proj_fld, exclusions, options)
-        if state('total') == 1:
-            count = ''
-        os.mkdir(dst)
-        for elem in elem_list:
-            orig = f'{proj_fld}/{elem}'
-            full_dst = f'{dst}/{elem}'
-            fld_char = ''
+
+    fld_count = file_count = symlink_count = 0
+    exclusions = rule['actions']['exclude']
+    elem_list = utils.get_files(proj_fld, exclusions, options)
+    if state('total') == 1:
+        count = ''
+    os.mkdir(dst)
+    for elem in elem_list:
+        orig = f'{proj_fld}/{elem}'
+        full_dst = f'{dst}/{elem}'
+        fld_char = ''
+        try:
             if os.path.isdir(orig):
                 fld_char = '/'
                 shutil.copytree(orig, full_dst, symlinks=True)
@@ -311,20 +311,36 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
                     file_count += 1
                 if exists(full_dst):
                     print_term('copy', 'I', f'Done: {proj_fld}/{elem}', uid, cnt=count)
+        except FileNotFoundError as fnf_error:
+            print_term('copy', 'E', f'File not found: {fnf_error}', uid, cnt=count)
+            append_state('failures', proj_fld)
+        except PermissionError as perm_error:
+            print_term('copy', 'E', f'Permission error: {perm_error}', uid, cnt=count)
+            append_state('failures', proj_fld)
+        except shutil.Error as shutil_error:
+            print_term('copy', 'E', f'Shutil error: {shutil_error}', uid, cnt=count)
+            append_state('failures', proj_fld)
+        except Exception as exc:
+            print_term('copy', 'E', f'Unexpected error: {exc}', uid, cnt=count)
+            append_state('failures', proj_fld)
 
-        print_term('stat', 'I', f'✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/', uid, cnt=count)
-        dep_folder = exclusions["dep_folder"]
+    print_term('stat', 'I', f'✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/', uid, cnt=count)
+    dep_folders = exclusions.get('dep_folders', []) or []
+    no_dep_folders = True
+    for dep_folder in dep_folders:
         if options['dependencies'] and exists(f'{proj_fld}/{dep_folder}'):
             start_dep_folder = time.time()
             print_term('copy', 'I', f'Processing {dep_folder}...', uid, cnt=count)
-            shutil.copytree(f'{proj_fld}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
-            print_term('stat', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/', uid, cnt=count)
-            append_state('backed_up', proj_fld)
-        else:
-            append_state('backed_up', proj_fld)
-    except Exception as exc:
-        print_term('copy', 'E', f'during the duplication {exc}', uid, cnt=count)
-        append_state('failures', proj_fld)
+            try:
+                shutil.copytree(f'{proj_fld}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
+                print_term('stat', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/', uid, cnt=count)
+                append_state('backed_up', proj_fld)
+                no_dep_folders = False
+            except Exception as exc:
+                print_term('copy', 'E', f'Error copying dependency folder {dep_folder}: {exc}', uid, cnt=count)
+                append_state('failures', proj_fld)
+    if no_dep_folders:
+        append_state('backed_up', proj_fld)
 
 
 def set_upload_expiration(ctx, param, value):

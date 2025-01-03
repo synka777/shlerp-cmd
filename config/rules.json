@@ -29,7 +29,7 @@
                 "exclude":{
                     "files":[],
                     "folders":["buildprep"],
-                    "dep_folder": "node_modules"
+                    "dep_folders": ["node_modules"]
                 }
             }
         },
@@ -62,7 +62,7 @@
                 "exclude":{
                     "files":["test-excl"],
                     "folders":[],
-                    "dep_folder": "node_modules"
+                    "dep_folders": ["node_modules"]
                 }
             }
         },
@@ -95,7 +95,7 @@
                 "exclude":{
                     "files":["test-excl"],
                     "folders":[],
-                    "dep_folder": "node_modules"
+                    "dep_folders": ["node_modules"]
                 }
             }
         }
@@ -116,8 +116,17 @@
                 "after":[],
                 "exclude":{
                     "files":[],
-                    "folders":["__pycache__"],
-                    "dep_folder": "venv"
+                    "folders":["__pycache__", "site_packages", "dist", "build"],
+                    "dep_folders": [
+                        "venv",
+                        "env",
+                        ".venv",
+                        "virtualenv",
+                        ".virtualenv", 
+                        "pipenv",
+                        "poetry",
+                        "conda_env"
+                    ]
                 }
             }
         },
@@ -137,7 +146,7 @@
                 "exclude":{
                     "files":["out.log", "karma.conf.js"],
                     "folders":["buildprep"],
-                    "dep_folder": "node_modules"
+                    "dep_folders": ["node_modules"]
                 }
             }
         },
@@ -157,7 +166,7 @@
                 "exclude":{
                     "files":[],
                     "folders":[],
-                    "dep_folder": null
+                    "dep_folders": null
                 }
             }
         }
