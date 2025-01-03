@@ -93,9 +93,9 @@ def vanilla_processing(_rules, proj_fld, uid):
     :return: A list containing the "vanilla" rule that matches the most with the project, can return
     several ones if there are multiple rules having the same score ("weight")
     """
-    print_term('scan', 'I', 'Crawling...', uid)
+    print_term('scan', 'I', 'Running deep scan...', uid)
     if state('debug'): print_term('scan:vani', 'D', f'Starting vanilla processing for project folder: {proj_fld}')
-    leads = crawl_for_weight(proj_fld, _rules['vanilla'])
+    leads = deep_scan(proj_fld, _rules['vanilla'])
     for l in leads:
         if state('debug'): print_term('scan:vani', 'D', f'Lead found: {l["name"]} with total: {l["total"]}')
     # If the weight of the rule that has the heaviest score is lighter than the threshold,
@@ -104,30 +104,46 @@ def vanilla_processing(_rules, proj_fld, uid):
     if not _elected_rule:
         leads = list([])
     else:
-        # leads = list([]) if _elected_rule[0]['total'] < threshold else list([_elected_rule[0]])
         leads = list([_elected_rule[0]])
-        if state('debug'): print_term('scan:vani', 'D', 'No framework rule matched, leads list emptied')
-
     return leads
 
 
-def crawl_for_weight(proj_fld, rules):
+def deep_scan(proj_fld, rules):
     """Crawl the project to find files matching the extensions we provide to this function
     :param proj_fld: text, the folder we want to process
     :param rules: object list containing languages names, extensions to crawl and weights
     :return: an updated list with some more weight (hopefully)
     """
     for rule in rules:
+        exclusions = rule['actions']['exclude']
+        excl_flds = exclusions['folders']
+        excl_files = exclusions['files']
+        dep_folders = exclusions.get('dep_folders', []) or []
+
+        def excluded(file_path):
+            for excl_fld in excl_flds:
+                if excl_fld in file_path:
+                    return True
+            for excl_file in excl_files:
+                if excl_file in file_path:
+                    return True
+            for dep_folder in dep_folders:
+                if dep_folder in file_path:
+                    return True
+
         if 'total' not in rule.keys():
             rule['total'] = 0
-        if state('debug'): print_term('crawl', 'D', f'Initial total for rule {rule["name"]}: {rule["total"]}')
+        if state('debug'): print_term('iglob', 'D', f'Initial total for rule {rule["name"]}: {rule["total"]}')
         for ext_elem in rule['detect']['extensions']:
             for ext in ext_elem['names']:
-                if state('debug'): print_term('crawl', 'D', f'Processing extension: {ext} for rule: {rule["name"]}')
+                if state('debug'): print_term('iglob', 'D', f'Processing extension: {ext} for rule: {rule["name"]}')
                 for file_path in glob.iglob(f'{proj_fld}/**/*{ext}', recursive=True):
-                    rule['total'] += ext_elem['weight']
-                    if state('debug'): print_term('crawl', 'D', f'Matched file: {file_path} for rule: {rule["name"]}, updated total: {rule["total"]}')
-        if state('debug'): print_term('crawl_for_weight', 'D', f'Final total for rule {rule["name"]}: {rule["total"]}')
+                    if not excluded(file_path):
+                        rule['total'] += ext_elem['weight']
+                        if state('debug'): print_term('iglob', 'D', f'Matched: {file_path} for rule: {rule["name"]}, updated total: {rule["total"]}')
+                    else:
+                        if state('debug'): print_term('iglob', 'D', f'Excluded: {file_path} for rule: {rule["name"]}')
+        if state('debug'): print_term('iglob', 'D', f'Total for rule {rule["name"]}: {rule["total"]}')
     return rules
 
 
