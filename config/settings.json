@@ -1,7 +1,7 @@
 {
     "rel_logs_path": ".local/logs",
     "verbose": false,
-    "debug_scan": false,
+    "debug_scan": true,
     "logging": {
         "prune": {
             "enabled": true,

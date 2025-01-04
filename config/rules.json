@@ -6,20 +6,17 @@
                 "files":[
                     {
                         "names":["ionic.config.json"],
-                        "pattern":null,
-                        "weight":6
+                        "pattern":null
                     }
                 ],
                 "folders":[
                     {
                         "name":"node_modules",
-                        "files":[],
-                        "weight":2
+                        "files":[]
                     },
                     {
                         "name":"platforms",
-                        "files":[],
-                        "weight":8
+                        "files":[]
                     }
                 ]
             },
@@ -39,20 +36,17 @@
                 "files":[
                     {
                         "names":["ionic.config.json"],
-                        "pattern":null,
-                        "weight":6
+                        "pattern":null
                     },
                     {
                         "names":["capacitor.config.ts"],
-                        "pattern":null,
-                        "weight":8
+                        "pattern":null
                     }
                 ],
                 "folders":[
                     {
                         "name":"node_modules",
-                        "files":[],
-                        "weight":2
+                        "files":[]
                     }
                 ]
             },
@@ -72,20 +66,17 @@
                 "files":[
                     {
                         "names":["package.json", "package-lock.json"],
-                        "pattern":"react-native",
-                        "weight":6
+                        "pattern":"react-native"
                     }
                 ],
                 "folders":[
                     {
                         "name":".expo-shared",
-                        "files":["assets.json"],
-                        "weight":6
+                        "files":["assets.json"]
                     },
                     {
                         "name":"node_modules",
-                        "files":[],
-                        "weight":2
+                        "files":[]
                     }
                 ]
             },

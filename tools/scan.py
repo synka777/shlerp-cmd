@@ -29,10 +29,10 @@ def frameworks_processing(rules, proj_fld):
                     if pattern:
                         with open(f'{proj_fld}/{name}', 'r') as file_content:
                             if pattern in file_content.read():
-                                total += file['weight']
+                                total += 1
                                 if state('debug'): print_term('scan:fram', 'D', f'Matched pattern in file: {name}, updated total: {total}')
                     else:
-                        total += file['weight']
+                        total += 1
                         if state('debug'): print_term('scan:fram', 'D', f'Matched file: {name}, updated total: {total}')
 
         # Check for folders defined in the rule
@@ -40,7 +40,7 @@ def frameworks_processing(rules, proj_fld):
             name = folder['name']
             if exists(f'{proj_fld}/{name}/'):
                 if not folder['files']:
-                    total += folder['weight']
+                    total += 1
                     if state('debug'): print_term('scan:fram', 'D', f'Matched folder: {name}, updated total: {total}')
                 else:
                     match = True
@@ -48,7 +48,7 @@ def frameworks_processing(rules, proj_fld):
                         if not exists(f'{proj_fld}/{folder["name"]}/{file}'):
                             match = False
                     if match:
-                        total += folder['weight']
+                        total += 1
                         if state('debug'): print_term('scan:fram', 'D', f'Matched all files in folder: {name}, updated total: {total}')
 
         _rule["total"] = total
@@ -71,7 +71,7 @@ def frameworks_processing(rules, proj_fld):
                     if file_name in exclusions:
                         add = False
                 if add:
-                    rule_threshold += criteria['weight']
+                    rule_threshold += 1
             return rule_threshold
 
         rule_threshold += get_dyn_threshold('files')
@@ -133,7 +133,6 @@ def deep_scan(proj_fld, rules):
 
         if 'total' not in rule.keys():
             rule['total'] = 0
-        if state('debug'): print_term('iglob', 'D', f'Initial total for rule {rule["name"]}: {rule["total"]}')
         for ext_elem in rule['detect']['extensions']:
             for ext in ext_elem['names']:
                 if state('debug'): print_term('iglob', 'D', f'Processing extension: {ext} for rule: {rule["name"]}')
