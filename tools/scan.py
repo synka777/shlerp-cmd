@@ -8,6 +8,9 @@ from tools.piputils import print_term
 import tools.utils as utils
 from os.path import exists
 import glob
+import os
+import re
+
 
 def frameworks_processing(rules, proj_fld):
     """Process the project folder to detect frameworks based on the provided rules.
@@ -16,47 +19,67 @@ def frameworks_processing(rules, proj_fld):
     :return: a list of matched framework rules
     """
     _fw_leads = []
+    print('FP ', len(rules))
+    dep_folders = get_dependency_folders(rules)
     for _rule in rules['frameworks']:
+        exclusions = _rule['actions']['exclude']
         if state('debug'): print_term('scan:fram', 'D', f'Processing rule: {_rule["name"]}')
-        total = 0
+        total_matches = 0
+        fw_location = None
 
-        # Check for files defined in the rule
-        for file in _rule['detect']['files']:
-            names = file['names']
-            pattern = file.get('pattern', None)
-            for name in names:
-                if exists(f'{proj_fld}/{name}'):
-                    if pattern:
-                        with open(f'{proj_fld}/{name}', 'r') as file_content:
-                            if pattern in file_content.read():
-                                total += 1
-                                if state('debug'): print_term('scan:fram', 'D', f'Matched pattern in file: {name}, updated total: {total}')
+        # Use os.walk() to traverse the project folder and its subfolders
+        for root, dirs, files in os.walk(proj_fld):
+            # Exclude dependency folders from dirs
+            dirs[:] = [d for d in dirs if not excluded(os.path.join(root, d), exclusions, dep_folders)]
+
+            # Check for folders defined in the rule
+            for folder in _rule['detect']['folders']:
+                name = folder['name']
+                if name in dirs:
+                    folder_path = os.path.join(root, name)
+                    if not excluded(folder_path, exclusions, dep_folders):
+                        if not folder['files']:
+                            total_matches += 1
+                            fw_location = root
+                            if state('debug'): print_term('scan:fram', 'D', f'Matched folder: {folder_path}')
+                        else:
+                            match = True
+                            for file in folder['files']:
+                                if not exists(os.path.join(folder_path, file)):
+                                    match = False
+                            if match:
+                                total_matches += 1
+                                fw_location = root
+                                if state('debug'): print_term('scan:fram', 'D', f'Matched all files in folder: {folder_path}')
                     else:
-                        total += 1
-                        if state('debug'): print_term('scan:fram', 'D', f'Matched file: {name}, updated total: {total}')
+                        continue
 
-        # Check for folders defined in the rule
-        for folder in _rule['detect']['folders']:
-            name = folder['name']
-            if exists(f'{proj_fld}/{name}/'):
-                if not folder['files']:
-                    total += 1
-                    if state('debug'): print_term('scan:fram', 'D', f'Matched folder: {name}, updated total: {total}')
-                else:
-                    match = True
-                    for file in folder['files']:
-                        if not exists(f'{proj_fld}/{folder["name"]}/{file}'):
-                            match = False
-                    if match:
-                        total += 1
-                        if state('debug'): print_term('scan:fram', 'D', f'Matched all files in folder: {name}, updated total: {total}')
+            # Check for files defined in the rule
+            for file in _rule['detect']['files']:
+                names = file['names']
+                pattern = file.get('pattern', None)
+                for name in names:
+                    if name in files:
+                        file_path = os.path.join(root, name)
+                        if not excluded(file_path, exclusions, dep_folders):
+                            if pattern:
+                                with open(file_path, 'r') as file_content:
+                                    content = file_content.read()
+                                    if re.search(pattern, content):
+                                        total_matches += 1
+                                        fw_location = root
+                                        if state('debug'): print_term('scan:fram', 'D', f'Matched pattern in file: {file_path}')
+                            else:
+                                total_matches += 1
+                                fw_location = root
+                                if state('debug'): print_term('scan:fram', 'D', f'Matched file: {file_path}')
 
-        _rule["total"] = total
-        if state('debug'): print_term('scan:fram', 'D', f'Total score for rule {_rule["name"]}: {total}')
+        _rule["total"] = total_matches
+        if state('debug'): print_term('scan:fram', 'D', f'Total score for rule {_rule["name"]}: {total_matches}')
 
-        rule_threshold = 0
-        def get_dyn_threshold(type):
-            rule_threshold = 0
+        matches_expected_num = 0
+        def get_matches_expected_num(type):
+            matches_expected_num = 0
             excl_obj = _rule['actions']['exclude']
             exclusions = excl_obj[type]
             dep_folders = excl_obj.get('dep_folders', []) or []
@@ -71,16 +94,18 @@ def frameworks_processing(rules, proj_fld):
                     if file_name in exclusions:
                         add = False
                 if add:
-                    rule_threshold += 1
-            return rule_threshold
+                    matches_expected_num += 1
+            return matches_expected_num
 
-        rule_threshold += get_dyn_threshold('files')
-        rule_threshold += get_dyn_threshold('folders')
-        
-        if state('debug'): print_term('scan:fram', 'D', f'Score threshold for {_rule["name"]}: {rule_threshold}')
+        matches_expected_num += get_matches_expected_num('files')
+        matches_expected_num += get_matches_expected_num('folders')
 
-        # Add the rule to the leads array if all of its criteria matched
-        if _rule['total'] >= rule_threshold:
+        if state('debug'): print_term('scan:fram', 'D', f'Score threshold for {_rule["name"]}: {matches_expected_num}')
+
+        # Add the rule to the leads array if all of its criteria matched, except if
+        # one of its criteria is also in the exclusions
+        if _rule['total'] >= matches_expected_num:
+            _rule['location'] = fw_location
             _fw_leads.append(_rule)
             if state('debug'): print_term('scan:fram', 'D', f'Rule {_rule["name"]} added to leads')
 
@@ -97,7 +122,8 @@ def vanilla_processing(_rules, proj_fld, uid):
     if state('debug'): print_term('scan:vani', 'D', f'Starting vanilla processing for project folder: {proj_fld}')
     leads = deep_scan(proj_fld, _rules['vanilla'])
     for l in leads:
-        if state('debug'): print_term('scan:vani', 'D', f'Lead found: {l["name"]} with total: {l["total"]}')
+        if l['total']:
+            if state('debug'): print_term('scan:vani', 'D', f'Lead found: {l["name"]} with total: {l["total"]}')
     # If the weight of the rule that has the heaviest score is lighter than the threshold,
     # We empty the leads list
     _elected_rule = utils.elect(leads)
@@ -114,35 +140,22 @@ def deep_scan(proj_fld, rules):
     :param rules: object list containing languages names, extensions to crawl and weights
     :return: an updated list with some more weight (hopefully)
     """
+    print('DS ',len(rules))
+    dep_folders = get_dependency_folders(rules)
     for rule in rules:
         exclusions = rule['actions']['exclude']
-        excl_flds = exclusions['folders']
-        excl_files = exclusions['files']
-        dep_folders = exclusions.get('dep_folders', []) or []
-
-        def excluded(file_path):
-            for excl_fld in excl_flds:
-                if excl_fld in file_path:
-                    return True
-            for excl_file in excl_files:
-                if excl_file in file_path:
-                    return True
-            for dep_folder in dep_folders:
-                if dep_folder in file_path:
-                    return True
-
         if 'total' not in rule.keys():
             rule['total'] = 0
         for ext_elem in rule['detect']['extensions']:
             for ext in ext_elem['names']:
-                if state('debug'): print_term('iglob', 'D', f'Processing extension: {ext} for rule: {rule["name"]}')
+                if state('debug'): print_term('scan:iglob', 'D', f'Processing extension: {ext} for rule: {rule["name"]}')
                 for file_path in glob.iglob(f'{proj_fld}/**/*{ext}', recursive=True):
-                    if not excluded(file_path):
+                    if not excluded(file_path, exclusions, dep_folders):
                         rule['total'] += ext_elem['weight']
-                        if state('debug'): print_term('iglob', 'D', f'Matched: {file_path} for rule: {rule["name"]}, updated total: {rule["total"]}')
+                        if state('debug'): print_term('scan:iglob', 'D', f'Matched: {file_path} for rule: {rule["name"]}, updated total: {rule["total"]}')
                     else:
-                        if state('debug'): print_term('iglob', 'D', f'Excluded: {file_path} for rule: {rule["name"]}')
-        if state('debug'): print_term('iglob', 'D', f'Total for rule {rule["name"]}: {rule["total"]}')
+                        if state('debug'): print_term('scan:iglob', 'D', f'Excluded: {file_path} for rule: {rule["name"]}')
+        if state('debug'): print_term('scan:iglob', 'D', f'Total for rule {rule["name"]}: {rule["total"]}')
     return rules
 
 
@@ -157,3 +170,28 @@ def prune_tried_rules(_rules, _tmp_file, history_type):
             if _rule['name'] == _rule_name:
                 _remaining_rules.remove(_rule)
     return _remaining_rules
+
+
+def get_dependency_folders(rules):
+    dep_folders = set()
+    print(len(rules), print(rules))
+    _rules = rules['frameworks'] + rules['vanilla'] \
+        if rules['frameworks'] and rules['vanilla'] \
+        else rules
+    for rule in _rules:
+        _dep_folders = rule['actions']['exclude']['dep_folders']
+        if _dep_folders:
+            for folder in _dep_folders:
+                dep_folders.add(folder)
+    return dep_folders
+
+
+def excluded(path, exclusions, dep_folders):
+    """Check if a path should be excluded based on exclusions and dependency folders."""
+    for exclusion in exclusions:
+        if exclusion in path:
+            return True
+    for dep_folder in dep_folders:
+        if dep_folder in path:
+            return True
+    return False

@@ -345,14 +345,13 @@ def enforce_limit(history_file, settings):
                 write_tmp.write(json.dumps(history_file, indent=4))
 
 
-def history_updated(rule, history_file, framework):
-    """Updates the history with a new rule
-    :param rule: List of dicts representing potential winners
+def history_updated(rules, history_file, framework):
+    """Updates the history with new rules
+    :param rules: List of dicts representing potential winners
     :param history_file: Temporary file containing the history list
-    :param framework: Boolean that allows to tell the functon if the rule to add is vanilla or framework
+    :param framework: Boolean that allows to tell the function if the rules to add are vanilla or framework
     :return: A boolean depending on the outcome of this function
     """
-    current_lang = rule['name']
     try:
         settings = get_settings()
         enforce_limit(history_file, settings)
@@ -360,30 +359,33 @@ def history_updated(rule, history_file, framework):
         rule_type = 'frameworks' if framework else 'vanilla'
         history = history_file[rule_type]
         history_limit = history_limits[rule_type]
-        # If the current language is in the history
-        if current_lang in history:
-            # But it's not the latest, get its position and remove it to add it back in first pos
-            if history.index(current_lang) != 0:
-                current_pos = history.index(current_lang)
-                history.pop(current_pos)
-                history.insert(0, current_lang)
-        else:
-            # If the current language isn't in the list, remove the oldest one if needed and then add it
-            if len(history) == history_limit:
-                history.pop()
-            history.insert(0, current_lang)
 
-        with open(f'{get_setup_fld()}/tmp/rules_history.json', 'w') as write_tmp:
+        for rule in rules:
+            tech = rule['name']
+            # If the current tech (language or framework) is in the history
+            if tech in history:
+                # But it's not the latest, get its position and remove it to add it back in first pos
+                if history.index(tech) != 0:
+                    current_pos = history.index(tech)
+                    history.pop(current_pos)
+                    history.insert(0, tech)
+            else:
+                # If the current language isn't in the list, remove the oldest one if needed and then add it
+                if len(history) == history_limit:
+                    history.pop()
+                history.insert(0, tech)
+
+        # Ensure the history does not exceed the limit
+        if len(history) > history_limit:
+            history = history[:history_limit]
+
+        # Write the updated history back to the file
+        with open('tmp/rules_history.json', 'w') as write_tmp:
             write_tmp.write(json.dumps(history_file, indent=4))
-            return True
-    except (FileNotFoundError, ValueError):
-        with open(f'{get_setup_fld()}/tmp/rules_history.json', 'a') as write_tmp:
-            write_tmp.write(json.dumps({
-                "rules_history": [current_lang]
-            }))
-            if exists(f'{get_setup_fld()}/tmp/rules_history.json'):
-                return True
-    return False
+
+        return True
+    except Exception as e:
+        return False
 
 
 def req_installed(setup_folder):

@@ -21,8 +21,6 @@
                 ]
             },
             "actions":{
-                "before":[],
-                "after":[],
                 "exclude":{
                     "files":[],
                     "folders":["buildprep"],
@@ -51,8 +49,6 @@
                 ]
             },
             "actions":{
-                "before":[],
-                "after":[],
                 "exclude":{
                     "files":["test-excl"],
                     "folders":[],
@@ -81,12 +77,98 @@
                 ]
             },
             "actions":{
-                "before":[],
-                "after":[],
                 "exclude":{
                     "files":["test-excl"],
                     "folders":[],
                     "dep_folders": ["node_modules"]
+                }
+            }
+        },
+        {
+            "name":"Flask",
+            "detect": {
+                "files": [
+                    {
+                        "names": ["app.py", "main.py", "wsgi.py"],
+                        "pattern": null
+                    },
+                    {
+                        "names": ["requirements.txt", "Pipfile"],
+                        "pattern": "\\bflask\\b"
+                    }
+                ],
+                "folders": [
+                    {
+                        "name": "instance",
+                        "files": []
+                    },
+                    {
+                        "name": "migrations",
+                        "files": []
+                    }
+                ]
+            },
+            "actions":{
+                "exclude":{
+                    "files":[],
+                    "folders":["__pycache__", "instance", "migrations"],
+                    "dep_folders": ["venv", "env", ".venv"]
+                }
+            }
+        },
+        {
+            "name":"Spring_Boot",
+            "detect":{
+                "files":[
+                    {
+                        "names":["pom.xml", "build.gradle"],
+                        "pattern":null
+                    }
+                ],
+                "folders":[
+                    {
+                        "name":"target",
+                        "files":[ ]
+                    },
+                    {
+                        "name":"build",
+                        "files":[ ]
+                    }
+                ]
+            },
+            "actions":{
+                "exclude":{
+                    "files":[],
+                    "folders":["target", "build"],
+                    "dep_folders": []
+                }
+            }
+        },
+        {
+            "name":"Laravel",
+            "detect":{
+                "files":[
+                    {
+                        "names":["artisan", "composer.json"],
+                        "pattern":null
+                    }
+                ],
+                "folders":[
+                    {
+                        "name":"vendor",
+                        "files":[ ]
+                    },
+                    {
+                        "name":"storage",
+                        "files":[ ]
+                    }
+                ]
+            },
+            "actions":{
+                "exclude":{
+                    "files":[".env"],
+                    "folders":["node_modules", "vendor", "storage/logs"],
+                    "dep_folders": ["vendor"]
                 }
             }
         }
@@ -103,8 +185,6 @@
                 ]
             },
             "actions":{
-                "before":[],
-                "after":[],
                 "exclude":{
                     "files":[],
                     "folders":["__pycache__", "site_packages", "dist", "build"],
@@ -132,8 +212,6 @@
                 ]
             },
             "actions":{
-                "before":[],
-                "after":[],
                 "exclude":{
                     "files":["out.log", "karma.conf.js"],
                     "folders":["buildprep"],
@@ -152,12 +230,58 @@
                 ]
             },
             "actions":{
-                "before":[],
-                "after":[],
                 "exclude":{
                     "files":[],
                     "folders":[],
                     "dep_folders": null
+                }
+            }
+        },
+        {
+            "name":"Rust",
+            "detect":{
+                "extensions":[
+                    {
+                        "names":["*.rs"],
+                        "weight":0.5
+                    }
+                ],
+                "files":[
+                    {
+                        "names":["Cargo.toml", "Cargo.lock"],
+                        "pattern":null
+                    }
+                ]
+            },
+            "actions":{
+                "exclude":{
+                    "files":[],
+                    "folders":["target"],
+                    "dep_folders": []
+                }
+            }
+        },
+        {
+            "name":"PHP",
+            "detect":{
+                "extensions":[
+                    {
+                        "names":["*.php"],
+                        "weight":0.5
+                    }
+                ],
+                "files":[
+                    {
+                        "names":["composer.json", "composer.lock"],
+                        "pattern":null
+                    }
+                ]
+            },
+            "actions":{
+                "exclude":{
+                    "files":[],
+                    "folders":["vendor"],
+                    "dep_folders": ["vendor"]
                 }
             }
         }

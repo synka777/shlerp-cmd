@@ -58,7 +58,7 @@ def auto_detect(proj_fld, uid):
     history_types = ('frameworks', 'vanilla')
     framework_matched = False
     threshold_reached = False
-    unclear = False
+    started = time.time()
 
     #####################
     # Step 1: Get the rules from the config & temporary file
@@ -115,17 +115,13 @@ def auto_detect(proj_fld, uid):
         print_term('scan', 'I', 'Evaluating framework rules...', uid)
         fw_leads = frameworks_processing(remaining_rules, proj_fld)
 
-    if fw_leads:
-        framework_matched = True
-        if len(fw_leads) > 1:
-            unclear = True
-
     if not framework_matched:
 
         #####################
         # Step 3: Evaluate vanilla rules if the frameworks didn't match anything
 
         # 3-1: Using the history
+        print(recent_rules)
         if recent_rules:
             print_term('scan', 'I', 'Evaluating vanilla history...', uid)
             v_leads = vanilla_processing(recent_rules, proj_fld, uid)
@@ -138,26 +134,20 @@ def auto_detect(proj_fld, uid):
             print_term('scan', 'I', 'Evaluating vanilla rules...', uid)
             v_leads = vanilla_processing(remaining_rules, proj_fld, uid)
 
-        if v_leads and len(v_leads) > 1:
-            unclear = True
-
     #####################
     # Step 4: Exit the function
 
-    if unclear:
-        # If we have more than one language remaining it means the auto-detection wasn't successful
-        print_term('scan', 'W', 'Unable to determine the main language for this project', uid)
-        return None
+    framework = True if fw_leads else False
+    elected_rule = v_leads if v_leads else fw_leads if fw_leads else None
+    elapsed_time = time.time() - started  # Calculate elapsed time
+    print(f"Auto-detection completed in {elapsed_time:.2f} seconds")
+    if elected_rule:
+        # Check if the history in the tmp file can be updated before exiting the function
+        if not utils.history_updated(elected_rule, tmp_file, framework):
+            print_term('scan', 'W', 'A problem occurred when trying to write in rules_history.json', uid)
+        return elected_rule
     else:
-        framework = True if fw_leads else False
-        elected_rule = v_leads[0] if v_leads else fw_leads[0] if fw_leads else None
-        if elected_rule:
-            # Check if the history in the tmp file can be updated before exiting the function
-            if not utils.history_updated(elected_rule, tmp_file, framework):
-                print_term('scan', 'W', 'A problem occurred when trying to write in rules_history.json', uid)
-            return elected_rule
-        else:
-            return None
+        return None
 
 
 def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
@@ -387,14 +377,14 @@ def validate_path(ctx, param, value):
 @click.option('-o', '--output', type=click.Path(), callback=validate_path, help=get_app_details()["options"]["output"])
 @click.option('-a', '--archive', default=False, is_flag=True, help=get_app_details()["options"]["archive"])
 @click.option('-u', '--upload', callback=set_upload_expiration, help=get_app_details()["options"]["upload"])
-@click.option('-r', '--rule', help=get_app_details()["options"]["rule"])
+@click.option('-r', '--rules', help=get_app_details()["options"]["rule"])
 @click.option('-b', '--batch', default=False, is_flag=True, help=get_app_details()["options"]["batch"])
 @click.option('-d', '--dependencies', default=False, is_flag=True, help=get_app_details()["options"]["dependencies"])
 @click.option('-ne', '--noexcl', default=False, is_flag=True, help=get_app_details()["options"]["noexcl"])
 @click.option('-ng', '--nogit', default=False, is_flag=True, help=get_app_details()["options"]["nogit"])
 @click.option('-kh', '--keephidden', default=False, is_flag=True, help=get_app_details()["options"]["keephidden"])
 @click.option('-hl', '--headless', default=False, is_flag=True, help=get_app_details()["options"]["headless"])
-def main(target, output, archive, upload, rule, batch, dependencies, noexcl, nogit, keephidden, headless):
+def main(target, output, archive, upload, rules, batch, dependencies, noexcl, nogit, keephidden, headless):
     """Dev projects backups made easy"""
 
     #####################
@@ -489,19 +479,20 @@ def main(target, output, archive, upload, rule, batch, dependencies, noexcl, nog
             batch_list.append(target['path'])
 
         for batch_elem in batch_list:
-            elem_rule = None
+            elem_rules = None
             if os.path.isdir(batch_elem):
-                if len(kwargs) > 0 and kwargs['rule']:
-                    elem_rule = kwargs['rule']
+                if len(kwargs) > 0 and kwargs['rules']:
+                    # Get rules from the --rule option, separated by semi colons
+                    elem_rules = [rule for rule in kwargs['rule'].lower().split(';')]
                 else:
                     if not batch_elem.startswith('.'):
                         print_term('scan', 'I', f'Scanning {batch_elem}', uid)
-                        elem_rule = auto_detect(batch_elem, uid)
-                if elem_rule:
-                    print_term('scan', 'I', f'Detected: {elem_rule["name"]}', uid)
+                        elem_rules = auto_detect(batch_elem, uid)
+                if elem_rules:
+                    print_term('scan', 'I', f'Detected: {[rule["name"] for rule in elem_rules]}', uid)
                     backup_sources.append({
                         'proj_fld': batch_elem,
-                        'rule': elem_rule
+                        'rules': elem_rules
                     })
                 else:
                     print_term('scan', 'W',
@@ -520,24 +511,27 @@ def main(target, output, archive, upload, rule, batch, dependencies, noexcl, nog
     # 1 - Check options validity & prepare mandatory
     #     variables for data processing
 
-    if not rule:
+    if not rules:
         get_backup_sources()
     else:
         # If a --rule has been provided by the user, check if it is valid
         with open(f'{get_setup_fld()}/rules.json', 'r') as read_file:
-            rules = json.load(read_file)
-            match = False
-            for stored_rule in rules:
-                if stored_rule['name'].lower() == str(rule).lower():
-                    if batch:
-                        get_backup_sources(rule=stored_rule)
-                    else:
-                        backup_sources.append({
-                            'proj_fld': target['path'],
-                            'rule': stored_rule
-                        })
-                    match = True
-            if not match:
+            _rules = json.load(read_file)
+            stored_rules = None
+            for stored_rule in _rules:
+                for rule in str(rule).lower().split(';'):
+                    if str(rule).lower() == stored_rule['name'].lower():
+                        stored_rules.append(stored_rule)
+            if stored_rules:
+                if batch:
+                    get_backup_sources(rules=stored_rules)
+                else:
+                    backup_sources.append({
+                        'proj_fld': target['path'],
+                        'rules': stored_rules
+                    })
+                matched = True
+            if not matched:
                 print_term('scan', 'E', 'Rule name not found', uid)
                 exit(0)
 
