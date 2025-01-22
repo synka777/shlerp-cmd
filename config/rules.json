@@ -23,7 +23,7 @@
             "actions":{
                 "exclude":{
                     "files":[],
-                    "folders":["buildprep"],
+                    "folders":[],
                     "dep_folders": ["node_modules"]
                 }
             }
@@ -50,7 +50,7 @@
             },
             "actions":{
                 "exclude":{
-                    "files":["test-excl"],
+                    "files":[],
                     "folders":[],
                     "dep_folders": ["node_modules"]
                 }
@@ -78,7 +78,7 @@
             },
             "actions":{
                 "exclude":{
-                    "files":["test-excl"],
+                    "files":[],
                     "folders":[],
                     "dep_folders": ["node_modules"]
                 }

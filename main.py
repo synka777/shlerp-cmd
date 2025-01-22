@@ -46,12 +46,13 @@ import json
 
 # Main logic & functions
 
-def auto_detect(proj_fld, uid):
+def auto_detect(proj_fld):
     """Auto-detects the project language/framework
     to then back it up while applying the exclusions defined in the rule that
     matched for this particular language/framework
     :return: dictionary/object representing the rule/language corresponding to the project
     """
+    uid = state('uid')
     v_leads = []
     fw_leads = []
     recent_rules = remaining_rules = {'frameworks': [], 'vanilla': []}
@@ -67,7 +68,7 @@ def auto_detect(proj_fld, uid):
         with open(f'{get_setup_fld()}/config/rules.json', 'r') as read_file:
             rules = json.load(read_file)
     except FileNotFoundError:
-        print_term('scan', 'E', 'rules.json not found', uid)
+        print_term('scan', 'E', 'rules.json not found', )
         exit(1)
 
     try:
@@ -84,7 +85,7 @@ def auto_detect(proj_fld, uid):
                             recent_rules[h_type].append(rule)
 
     except FileNotFoundError:
-        print_term('scan', 'I', 'Temp file not found, will use the whole ruleset instead', uid)
+        print_term('scan', 'I', 'Temp file not found, will use the whole ruleset instead', )
         tmp_file = {'frameworks': [], 'vanilla': []}
         tmp_fld = f'{get_setup_fld()}/tmp'
         if not exists(tmp_fld):
@@ -97,125 +98,117 @@ def auto_detect(proj_fld, uid):
     # It makes sense to try to match the frameworks first as they are more specific than the vanilla rules
 
     # 2-1: Using the history
-    if len(recent_rules['frameworks']) > 0:
-        print_term('scan', 'I', 'Evaluating framework history...', uid)
-        fw_leads = frameworks_processing(recent_rules, proj_fld)
-        if fw_leads:
-            framework_matched = True
+    # if len(recent_rules['frameworks']) > 0:
+    #     print_term('scan', 'I', 'Evaluating framework history...', )
+    #     fw_leads = frameworks_processing(recent_rules, proj_fld)
+    #     if fw_leads:
+    #         framework_matched = True
 
     # 2-2: Using the remaining framework rules that were not present into the history
-    if not framework_matched:
-        if len(recent_rules['vanilla']) > 0:
-            # First we create a dict that only contains the remaining rules
-            remaining_rules['frameworks'] = prune_tried_rules(rules, tmp_file, 'frameworks')
-        else:
-            remaining_rules = rules.copy()
+    # if not framework_matched:
+    # if len(recent_rules['vanilla']) > 0:
+    #     # First we create a dict that only contains the remaining rules
+    #     remaining_rules['frameworks'] = prune_tried_rules(rules, tmp_file, 'frameworks')
+    # else:
+    #     remaining_rules = rules.copy()
 
-        # Then do the pattern matching: those remaining rules
-        print_term('scan', 'I', 'Evaluating framework rules...', uid)
-        fw_leads = frameworks_processing(remaining_rules, proj_fld)
+    # Then do the pattern matching: those remaining rules
+    print_term('scan', 'I', 'Evaluating framework rules...', )
+    fw_leads = frameworks_processing(rules, proj_fld)
+    # fw_leads = frameworks_processing(remaining_rules, proj_fld)
 
-    if not framework_matched:
+    # if not framework_matched:
 
-        #####################
-        # Step 3: Evaluate vanilla rules if the frameworks didn't match anything
+    #####################
+    # Step 3: Evaluate vanilla rules if the frameworks didn't match anything
 
-        # 3-1: Using the history
-        print(recent_rules)
-        if recent_rules:
-            print_term('scan', 'I', 'Evaluating vanilla history...', uid)
-            v_leads = vanilla_processing(recent_rules, proj_fld, uid)
-            if len(v_leads) > 0:
-                threshold_reached = True
+    # 3-1: Using the history
+    # if recent_rules:
+    #     print_term('scan', 'I', 'Evaluating vanilla history...', )
+    #     v_leads = vanilla_processing(recent_rules, proj_fld)
+    #     if len(v_leads) > 0:
+    #         threshold_reached = True
 
-        # 3-2: Using the whole ruleset
-        if not threshold_reached:
-            remaining_rules['vanilla'] = prune_tried_rules(rules, tmp_file, 'vanilla')
-            print_term('scan', 'I', 'Evaluating vanilla rules...', uid)
-            v_leads = vanilla_processing(remaining_rules, proj_fld, uid)
+    # 3-2: Using the whole ruleset
+    # if not threshold_reached:
+    # remaining_rules['vanilla'] = prune_tried_rules(rules, tmp_file, 'vanilla')
+    print_term('scan', 'I', 'Evaluating vanilla rules...', )
+    v_leads = vanilla_processing(rules, proj_fld, )
 
     #####################
     # Step 4: Exit the function
 
-    framework = True if fw_leads else False
-    elected_rule = v_leads if v_leads else fw_leads if fw_leads else None
+    # framework = True if fw_leads else False
     elapsed_time = time.time() - started  # Calculate elapsed time
-    print(f"Auto-detection completed in {elapsed_time:.2f} seconds")
-    if elected_rule:
-        # Check if the history in the tmp file can be updated before exiting the function
-        if not utils.history_updated(elected_rule, tmp_file, framework):
-            print_term('scan', 'W', 'A problem occurred when trying to write in rules_history.json', uid)
-        return elected_rule
-    else:
-        return None
+    # elected_rules = v_leads if v_leads else fw_leads if fw_leads else None
+    # if elected_rules:
+    #     # Check if the history in the tmp file can be updated before exiting the function
+    #     if not utils.history_updated(elected_rules, tmp_file, framework):
+    #         print_term('scan', 'W', 'A problem occurred when trying to write in rules_history.json', )
+    #     return elected_rules
+    # else:
+    #     return None
+    if state('debug'): print_term('scan:stat', 'D', f'Auto-detection completed in {elapsed_time:.2f} seconds')
+    return fw_leads + v_leads
 
 
-def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
-    """Makes an archive of a given folder, without node_modules
+def make_archive(proj_fld, dst_path, rules, options, uid, started, count):
+    """
+    Creates a zip archive of the project folder.
     :param proj_fld: text, the folder we want to archive
     :param dst_path: text, the location where we want to store the archive
-    :param rule: dictionary/object representing the rule/language corresponding to the project
+    :param rules: list of dictionaries/objects representing the rules/languages corresponding to the project
     :param options: dictionary/object containing exclusion options
     :param uid: text representing a short uid
     :param started: number representing the time when the script has been executed
     :param count: string that represents nothing or the current count out of a total of backups to process
     """
     with ZipFile(f'{dst_path}.zip', 'w', ZIP_DEFLATED, compresslevel=9) as zip_archive:
-        fld_count = file_count = symlink_count = 0
-        success = False
+        fld_count = file_count = 0
+        success = True
         if state('total') == 1:
             count = ''
-        for elem_name in utils.iglob_hidden(proj_fld + '/**', recursive=True):
-            rel_name = elem_name.split(f'{proj_fld}/')[1]
+        
+        #####################
+        # Exclusion zone
+
+        # Collect exclusions from all rules
+        exclusions = {
+            'files': set(),
+            'folders': set(),
+            'dep_folders': set()
+        }
+        exclusions['files'].add('.DS_Store')
+        for rule in rules:
+            if 'actions' in rule and 'exclude' in rule['actions']:
+                exclude = rule['actions']['exclude']
+                if 'files' in exclude:
+                    exclusions['files'].update(exclude['files'])
+                if 'folders' in exclude:
+                    exclusions['folders'].update(exclude['folders'])
+                if 'dep_folders' in exclude:
+                    exclusions['dep_folders'].update(exclude['dep_folders'])
+
+        for elem_path in utils.iglob_hidden(proj_fld + '/**', recursive=True):
+            rel_name = elem_path.split(f'{proj_fld}/')[1]
             proceed = True
             output = True
-            exclusions = rule['actions']['exclude']
-            dep_folders = exclusions.get('dep_folders', []) or []
-            if options['nogit']:
-                exclusions['folders'].append('.git')
-                exclusions['files'].append('.gitignore')
 
-            #####################
-            # Exclusion zone
+            if options['nogit']:
+                exclusions['folders'].add('.git')
+                exclusions['files'].add('.gitignore')
 
             # Reject the current relative path if one of these conditions are matched
-            if options['noexcl']:
-                proceed = True
-            else:
-                if os.path.isdir(elem_name):
-                    if dep_folders and rel_name in dep_folders:
-                        proceed = False
-                    if exclusions['folders']:
-                        for fld_excl in exclusions['folders']:
-                            if fld_excl in rel_name:
-                                proceed = False
-                else:
-                    if exclusions['files']:
-                        for file_excl in exclusions['files']:
-                            if (
-                                    file_excl == rel_name.split('/')[-1] or
-                                    (dep_folders and rel_name in dep_folders)
-                            ):
-                                proceed = False
-                    if exclusions['folders']:
-                        for fld_excl in exclusions['folders']:
-                            if fld_excl in rel_name:
-                                proceed = False
+            if not options['noexcl']:
+                if any(dep_folder in elem_path for dep_folder in exclusions['dep_folders']):
+                    proceed = False
+                if any(excl in rel_name for excl in exclusions['folders']):
+                    proceed = False
+                if any(excl in rel_name for excl in exclusions['files']):
+                    proceed = False
 
-            # Excludes all hidden files from the backup except git data
-            path_chunks = elem_name.split('/')
-            for chunk in path_chunks:
-                if chunk.startswith('.'):
-                    if not path_chunks[-1].startswith('.'):
-                        output = False
-                    if (
-                            not options['keephidden'] and
-                            not (
-                                    chunk == '.git' or
-                                    chunk == '.gitignore'
-                            )
-                    ):
-                        proceed = False
+            if '.git' in elem_path:
+                output = False
 
             #####################
             # Archive making
@@ -223,82 +216,56 @@ def make_archive(proj_fld, dst_path, rule, options, uid, started, count):
             if proceed:
                 if rel_name == '':
                     output = False
-                # If the elem_name is actually a symbolic link, use zip_info and zipfile.writestr()
-                # Source: https://gist.github.com/kgn/610907
-                if os.path.islink(elem_name):
-                    symlink_count += 1
-                    # http://www.mail-archive.com/python-list@python.org/msg34223.html
-                    zip_info = ZipInfo(elem_name)
-                    zip_info.create_system = 3
-                    # long type of hex val of '0xA1ED0000L',
-                    # say, symlink attr magic...
-                    zip_info.external_attr = 2716663808
-                    try:
-                        zip_archive.writestr(zip_info, os.readlink(f'{elem_name}'))
-                        if output:
-                            print_term('arch', 'I', f'Done: {proj_fld}/{rel_name}', uid, cnt=count)
-                        success = True
-                    except Exception as exc:
-                        print_term('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
-                        append_state('failures', proj_fld)
-                else:
-                    try:
-                        zip_archive.write(f'{elem_name}', arcname=f'{rel_name}')
-                        fld_char = ''
-                        if os.path.isdir(elem_name):
-                            fld_count += 1
-                            fld_char = '/'
-                        else:
-                            file_count += 1
-                        if output:
-                            print_term('arch', 'I', f'Done: {proj_fld}/{rel_name}{fld_char}', uid, cnt=count)
-                        success = True
-                    except Exception as exc:
-                        print_term('arch', 'E', f'A problem happened while handling {rel_name}: {exc}', uid, cnt=count)
-                        append_state('failures', proj_fld)
+                try:
+                    zip_archive.write(elem_path, rel_name)
+                    if os.path.isdir(elem_path):
+                        rel_name = rel_name + '/'
+                        fld_count += 1
+                    else:
+                        file_count += 1
+                    if output:
+                        print_term('arch', 'I', f'Added: {rel_name}', uid, cnt=count)
+                except Exception as e:
+                    success = False
+                    print_term('arch', 'E', f'Error adding {rel_name}: {e}', uid, cnt=count)
+
         if success:
             append_state('backed_up', proj_fld)
-            print_term('stat', 'I', f'Folders: {fld_count} - Files: {file_count} - Symbolic links: {symlink_count}', uid, cnt=count)
+            print_term('stat', 'I', f'Folders: {fld_count} - Files: {file_count}', uid, cnt=count)
             print_term('stat', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip', uid, cnt=count)
         else:
             append_state('failures', proj_fld)
             print_term('stat', 'W', f'Incomplete archive: {dst_path}.zip', uid, cnt=count)
 
 
-def duplicate(proj_fld, dst, rule, options, uid, started, count):
+def duplicate(proj_fld, dst, rules, options, uid, started, count):
     """Duplicates a project folder, processes all files and folders. node_modules will be processed last if cache = True
     :param proj_fld: string that represents the project folder we want to duplicate
     :param dst: string that represents the destination folder where we will copy the project files
-    :param rule: dictionary/object representing the rule/language corresponding to the project
+    :param rules: list of dictionaries/object representing the technologies used by the project
     :param options: dictionary/object containing exclusion options
     :param uid: text representing a short uid,
     :param started: number representing the time when the script has been executed
     :param count: string that represents nothing or the current count out of a total of backups to process
     """
 
-    fld_count = file_count = symlink_count = 0
-    exclusions = rule['actions']['exclude']
-    elem_list = utils.get_files(proj_fld, exclusions, options)
+    fld_count = file_count = 0
+    elem_list = utils.get_files(proj_fld, rules, options)
     if state('total') == 1:
         count = ''
     os.mkdir(dst)
     for elem in elem_list:
         orig = f'{proj_fld}/{elem}'
         full_dst = f'{dst}/{elem}'
-        fld_char = ''
         try:
             if os.path.isdir(orig):
-                fld_char = '/'
-                shutil.copytree(orig, full_dst, symlinks=True)
+                shutil.copytree(orig, full_dst)
                 if exists(full_dst):
-                    print_term('copy', 'I', f'Done: {proj_fld}/{elem}{fld_char}', uid, cnt=count)
+                    print_term('copy', 'I', f'Done: {proj_fld}/{elem}/', uid, cnt=count)
                     fld_count += 1
             else:
                 shutil.copy(orig, full_dst)
-                if os.path.islink(elem):
-                    symlink_count += 1
-                else:
-                    file_count += 1
+                file_count += 1
                 if exists(full_dst):
                     print_term('copy', 'I', f'Done: {proj_fld}/{elem}', uid, cnt=count)
         except FileNotFoundError as fnf_error:
@@ -315,22 +282,7 @@ def duplicate(proj_fld, dst, rule, options, uid, started, count):
             append_state('failures', proj_fld)
 
     print_term('stat', 'I', f'✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/', uid, cnt=count)
-    dep_folders = exclusions.get('dep_folders', []) or []
-    no_dep_folders = True
-    for dep_folder in dep_folders:
-        if options['dependencies'] and exists(f'{proj_fld}/{dep_folder}'):
-            start_dep_folder = time.time()
-            print_term('copy', 'I', f'Processing {dep_folder}...', uid, cnt=count)
-            try:
-                shutil.copytree(f'{proj_fld}/{dep_folder}', f'{dst}/{dep_folder}', symlinks=True)
-                print_term('stat', 'I', f'Done ({"%.2f" % (time.time() - start_dep_folder)}s): {dst}/{dep_folder}/', uid, cnt=count)
-                append_state('backed_up', proj_fld)
-                no_dep_folders = False
-            except Exception as exc:
-                print_term('copy', 'E', f'Error copying dependency folder {dep_folder}: {exc}', uid, cnt=count)
-                append_state('failures', proj_fld)
-    if no_dep_folders:
-        append_state('backed_up', proj_fld)
+    append_state('backed_up', proj_fld)
 
 
 def set_upload_expiration(ctx, param, value):
@@ -379,12 +331,11 @@ def validate_path(ctx, param, value):
 @click.option('-u', '--upload', callback=set_upload_expiration, help=get_app_details()["options"]["upload"])
 @click.option('-r', '--rules', help=get_app_details()["options"]["rule"])
 @click.option('-b', '--batch', default=False, is_flag=True, help=get_app_details()["options"]["batch"])
-@click.option('-d', '--dependencies', default=False, is_flag=True, help=get_app_details()["options"]["dependencies"])
 @click.option('-ne', '--noexcl', default=False, is_flag=True, help=get_app_details()["options"]["noexcl"])
 @click.option('-ng', '--nogit', default=False, is_flag=True, help=get_app_details()["options"]["nogit"])
 @click.option('-kh', '--keephidden', default=False, is_flag=True, help=get_app_details()["options"]["keephidden"])
 @click.option('-hl', '--headless', default=False, is_flag=True, help=get_app_details()["options"]["headless"])
-def main(target, output, archive, upload, rules, batch, dependencies, noexcl, nogit, keephidden, headless):
+def main(target, output, archive, upload, rules, batch, noexcl, nogit, keephidden, headless):
     """Dev projects backups made easy"""
 
     #####################
@@ -395,7 +346,6 @@ def main(target, output, archive, upload, rules, batch, dependencies, noexcl, no
     archiving_failed = False
     bad_target = False
     options = {
-        'dependencies': dependencies,
         'noexcl': noexcl,
         'nogit': nogit,
         'keephidden': keephidden,
@@ -432,13 +382,13 @@ def main(target, output, archive, upload, rules, batch, dependencies, noexcl, no
                     if not path['folder']:
                         bad_target = True
                 if bad_target:
-                    print_term('prep', 'E', f'The path provided for --{path["opt"]} is not a folder {path["path"]}', uid)
+                    print_term('prep', 'E', f'The path provided for --{path["opt"]} is not a folder {path["path"]}', )
                     exit(0)
             else:
-                print_term('prep', 'E', f'The provided target for --{path["opt"]} does not exist: {path["path"]}', uid)
+                print_term('prep', 'E', f'The provided target for --{path["opt"]} does not exist: {path["path"]}', )
                 exit(0)
         else:
-            print_term('prep', 'E', f'Missing value for --{path["opt"]}', uid)
+            print_term('prep', 'E', f'Missing value for --{path["opt"]}', )
             exit(0)
 
     if batch:
@@ -449,7 +399,7 @@ def main(target, output, archive, upload, rules, batch, dependencies, noexcl, no
                         input=True
                         )
         if u_input == 'N' or u_input == 'n':
-            print_term('prep', 'I', 'Exiting shlerp', uid)
+            print_term('prep', 'I', 'Exiting shlerp', )
             exit(0)
 
     is_upload = False
@@ -462,7 +412,7 @@ def main(target, output, archive, upload, rules, batch, dependencies, noexcl, no
             else:
                 raise ValueError
         except (TypeError, ValueError):
-            print_term('prep', 'E', 'Supported regex format: ^[1-9]d*[y|Q|M|w|d|h|m|s]$ Tip: You can use -u without any value', uid)
+            print_term('prep', 'E', 'Supported regex format: ^[1-9]d*[y|Q|M|w|d|h|m|s]$ Tip: You can use -u without any value', )
             exit(0)
 
     #####################
@@ -486,18 +436,16 @@ def main(target, output, archive, upload, rules, batch, dependencies, noexcl, no
                     elem_rules = [rule for rule in kwargs['rule'].lower().split(';')]
                 else:
                     if not batch_elem.startswith('.'):
-                        print_term('scan', 'I', f'Scanning {batch_elem}', uid)
-                        elem_rules = auto_detect(batch_elem, uid)
+                        print_term('scan', 'I', f'Scanning {batch_elem}', )
+                        elem_rules = auto_detect(batch_elem, )
                 if elem_rules:
-                    print_term('scan', 'I', f'Detected: {[rule["name"] for rule in elem_rules]}', uid)
+                    print_term('scan', 'I', f'Detected: {[rule["name"] for rule in elem_rules]}', )
                     backup_sources.append({
                         'proj_fld': batch_elem,
                         'rules': elem_rules
                     })
                 else:
-                    print_term('scan', 'W',
-                            f'The folder {batch_elem} won\'t be processed as automatic rule detection failed',
-                            uid)
+                    print_term('scan', 'W', f'The folder {batch_elem} won\'t be processed as automatic rule detection failed')
                     append_state('ad_failures', batch_elem)
                     incr_state('total')
             if is_archive(batch_elem):
@@ -532,7 +480,7 @@ def main(target, output, archive, upload, rules, batch, dependencies, noexcl, no
                     })
                 matched = True
             if not matched:
-                print_term('scan', 'E', 'Rule name not found', uid)
+                print_term('scan', 'E', 'Rule name not found', )
                 exit(0)
 
     # At this point we should have a list containing at least one project to process
@@ -570,14 +518,14 @@ def main(target, output, archive, upload, rules, batch, dependencies, noexcl, no
                 # If --archive is provided to the script, we use make_archive()
                 make_archive(
                     backup['proj_fld'], backup['dst'],
-                    backup['rule'], options,
+                    backup['rules'], options,
                     uid, start_time, count
                 )
             if not archive:
                 # Else if we don't want an archive we will do a copy of the project instead
                 duplicate(
                     backup['proj_fld'], backup['dst'],
-                    backup['rule'], options,
+                    backup['rules'], options,
                     uid, start_time, count
                 )
 
@@ -591,14 +539,14 @@ def main(target, output, archive, upload, rules, batch, dependencies, noexcl, no
                 elif backup['proj_fld'] in state('backed_up'):
                     zip_path = f'{backup["dst"]}.zip'
                 else:
-                    print_term(step, 'E', 'Archiving process failed - skipping upload', uid)
+                    print_term(step, 'E', 'Archiving process failed - skipping upload', )
                     archiving_failed = True
 
                 if not archiving_failed:
                     archive_size_mb = utils.get_file_size(zip_path)
                     archive_size_gb = archive_size_mb / 1024  # Convert MB to GB
                     if archive_size_gb > 2:  # 2 GB limit
-                        print_term(step, 'E', f'File size is too big: {archive_size_gb:.2f} GB', uid)
+                        print_term(step, 'E', f'File size is too big: {archive_size_gb:.2f} GB', )
                     else:
                         response = upload_archive(zip_path, expiration)
                         json_resp = response.json()
@@ -622,13 +570,13 @@ def main(target, output, archive, upload, rules, batch, dependencies, noexcl, no
                             f'Total runtime: {"%.2f" % (time.time() - exec_time)}s'
                     # Display which kind of operation has been done during current execution
                     operation = 'Upload' if upload else 'Archive' if archive else 'Copy'
-                    print_term(step, 'I', summary, uid)
+                    print_term(step, 'I', summary, )
                     if len(state('ad_failures')) > 0:
-                        print_term(step, 'W', f'Detection failures: {state("ad_failures")}', uid)
+                        print_term(step, 'W', f'Detection failures: {state("ad_failures")}', )
                     if len(state('failures')) > 0:
-                        print_term(step, 'W', operation, f'Backup failures: {state("failures")}', uid)
+                        print_term(step, 'W', operation, f'Backup failures: {state("failures")}', )
                     if len(state('upload_failures')) > 0:
-                        print_term(step, 'W', f'Upload failures: {state("upload_failures")}', uid)
+                        print_term(step, 'W', f'Upload failures: {state("upload_failures")}', )
 
 
 def handle_sigint(signalnum, frame):

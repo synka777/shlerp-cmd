@@ -19,13 +19,11 @@ def frameworks_processing(rules, proj_fld):
     :return: a list of matched framework rules
     """
     _fw_leads = []
-    print('FP ', len(rules))
-    dep_folders = get_dependency_folders(rules)
+    dep_folders = utils.get_dependency_folders(rules['frameworks'] + rules['vanilla'])
     for _rule in rules['frameworks']:
         exclusions = _rule['actions']['exclude']
         if state('debug'): print_term('scan:fram', 'D', f'Processing rule: {_rule["name"]}')
         total_matches = 0
-        fw_location = None
 
         # Use os.walk() to traverse the project folder and its subfolders
         for root, dirs, files in os.walk(proj_fld):
@@ -40,7 +38,6 @@ def frameworks_processing(rules, proj_fld):
                     if not excluded(folder_path, exclusions, dep_folders):
                         if not folder['files']:
                             total_matches += 1
-                            fw_location = root
                             if state('debug'): print_term('scan:fram', 'D', f'Matched folder: {folder_path}')
                         else:
                             match = True
@@ -49,7 +46,6 @@ def frameworks_processing(rules, proj_fld):
                                     match = False
                             if match:
                                 total_matches += 1
-                                fw_location = root
                                 if state('debug'): print_term('scan:fram', 'D', f'Matched all files in folder: {folder_path}')
                     else:
                         continue
@@ -67,11 +63,9 @@ def frameworks_processing(rules, proj_fld):
                                     content = file_content.read()
                                     if re.search(pattern, content):
                                         total_matches += 1
-                                        fw_location = root
                                         if state('debug'): print_term('scan:fram', 'D', f'Matched pattern in file: {file_path}')
                             else:
                                 total_matches += 1
-                                fw_location = root
                                 if state('debug'): print_term('scan:fram', 'D', f'Matched file: {file_path}')
 
         _rule["total"] = total_matches
@@ -105,32 +99,33 @@ def frameworks_processing(rules, proj_fld):
         # Add the rule to the leads array if all of its criteria matched, except if
         # one of its criteria is also in the exclusions
         if _rule['total'] >= matches_expected_num:
-            _rule['location'] = fw_location
             _fw_leads.append(_rule)
             if state('debug'): print_term('scan:fram', 'D', f'Rule {_rule["name"]} added to leads')
 
     return utils.elect(_fw_leads)
 
 
-def vanilla_processing(_rules, proj_fld, uid):
+def vanilla_processing(_rules, proj_fld):
     """This function is scanning the project folder to backup and compares its content with the rules
     defined in the vanilla section of the rules file.
     :return: A list containing the "vanilla" rule that matches the most with the project, can return
     several ones if there are multiple rules having the same score ("weight")
     """
-    print_term('scan', 'I', 'Running deep scan...', uid)
+    leads = []
+    print_term('scan', 'I', 'Running deep scan...')
     if state('debug'): print_term('scan:vani', 'D', f'Starting vanilla processing for project folder: {proj_fld}')
-    leads = deep_scan(proj_fld, _rules['vanilla'])
-    for l in leads:
-        if l['total']:
-            if state('debug'): print_term('scan:vani', 'D', f'Lead found: {l["name"]} with total: {l["total"]}')
+    scored_v_rules = deep_scan(proj_fld, _rules)
+    for svr in scored_v_rules:
+        if svr['total']:
+            leads.append(svr)
+            if state('debug'): print_term('scan:vani', 'D', f'Lead found: {svr["name"]} with total: {svr["total"]}')
     # If the weight of the rule that has the heaviest score is lighter than the threshold,
     # We empty the leads list
-    _elected_rule = utils.elect(leads)
-    if not _elected_rule:
-        leads = list([])
-    else:
-        leads = list([_elected_rule[0]])
+    # _elected_rule = utils.elect(leads)
+    # if not _elected_rule:
+    #     leads = list([])
+    # else:
+    #     leads = list([_elected_rule[0]])
     return leads
 
 
@@ -140,9 +135,8 @@ def deep_scan(proj_fld, rules):
     :param rules: object list containing languages names, extensions to crawl and weights
     :return: an updated list with some more weight (hopefully)
     """
-    print('DS ',len(rules))
-    dep_folders = get_dependency_folders(rules)
-    for rule in rules:
+    dep_folders = utils.get_dependency_folders(rules['frameworks'] + rules['vanilla'])
+    for rule in rules['vanilla']:
         exclusions = rule['actions']['exclude']
         if 'total' not in rule.keys():
             rule['total'] = 0
@@ -156,7 +150,7 @@ def deep_scan(proj_fld, rules):
                     else:
                         if state('debug'): print_term('scan:iglob', 'D', f'Excluded: {file_path} for rule: {rule["name"]}')
         if state('debug'): print_term('scan:iglob', 'D', f'Total for rule {rule["name"]}: {rule["total"]}')
-    return rules
+    return rules['vanilla']
 
 
 def prune_tried_rules(_rules, _tmp_file, history_type):
@@ -170,20 +164,6 @@ def prune_tried_rules(_rules, _tmp_file, history_type):
             if _rule['name'] == _rule_name:
                 _remaining_rules.remove(_rule)
     return _remaining_rules
-
-
-def get_dependency_folders(rules):
-    dep_folders = set()
-    print(len(rules), print(rules))
-    _rules = rules['frameworks'] + rules['vanilla'] \
-        if rules['frameworks'] and rules['vanilla'] \
-        else rules
-    for rule in _rules:
-        _dep_folders = rule['actions']['exclude']['dep_folders']
-        if _dep_folders:
-            for folder in _dep_folders:
-                dep_folders.add(folder)
-    return dep_folders
 
 
 def excluded(path, exclusions, dep_folders):

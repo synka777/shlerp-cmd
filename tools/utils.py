@@ -167,7 +167,7 @@ def log(msg, log_type):
 
         elif len(log_files) == 1:
             log_file = log_files[0]
-            # If only one log file, open the file in rw mode and prune the jobs that are too old.
+            # If only one log file, open the file in rw mode and prune the entries that are too old.
             with open(f'{log_fld}/{log_files[0]}', 'r') as prune_file:
                 now = datetime.now()
                 valid_entries = []
@@ -256,58 +256,88 @@ def is_archive(file_path):
     return mime_type in archive_mime_types
 
 
-def get_files(path, exclusions, options):
-    """Lists the files contained in a given folder, without symlinks
-    :param path: String referring to the path that needs it's content to be listed
-    :param exclusions: Dictionary containing the files and folders we want to exclude
+def get_files(path, rules, options):
+    """Lists the files contained in a given folder
+    :param path: String referring to the path that needs its content to be listed
+    :param rules: List of rules containing exclusions
     :param options: dictionary/object containing exclusion options
     :return: A list of files, without any possible node_modules folder
     """
+    exclusions = {
+        "files": set(),
+        "folders": set(),
+        "dep_folders": set()
+    }
+
+    # Handle nogit option
     if options['nogit']:
-        exclusions['folders'].append('.git')
-        exclusions['files'].append('.gitignore')
+        rules.append(
+            {
+                "actions": {
+                    "exclude": {
+                        "files": ['.git'],
+                        "folders": ['.gitignore']
+                    }
+                }
+            }
+        )
+
+    # Collect exclusions from all rules
+    for rule in rules:
+        if 'actions' in rule and 'exclude' in rule['actions']:
+            exclude = rule['actions']['exclude']
+            if 'files' in exclude:
+                exclusions['files'].update(exclude['files'])
+            if 'folders' in exclude:
+                exclusions['folders'].update(exclude['folders'])
+            if 'dep_folders' in exclude:
+                exclusions['dep_folders'].update(exclude['dep_folders'])
+
     # If the noexcl option is set to True, we return all the files in the folder except the dependency folder
     if options['noexcl']:
         return [
             file for file in os.listdir(path)
-            if (exclusions.get('dep_folders', []) \
-                and file not in exclusions.get('dep_folders', []))
-                or not exclusions.get('dep_folders', [])
+            if (exclusions['dep_folders'] and file not in exclusions['dep_folders'])
+            or not exclusions['dep_folders']
         ]
+
     elem_list = []
-    dep_folders = exclusions.get('dep_folders', []) or []
     for elem in os.listdir(path):
         excl_matched = False
-        if (
+        elem_path = os.path.join(path, elem)
+
+        if any(dep_folder in elem_path for dep_folder in exclusions['dep_folders']):
+            excl_matched = True
+        if any(excl in elem_path for excl in exclusions['folders']):
+            excl_matched = True
+        if any(excl in elem_path for excl in exclusions['files']):
+            excl_matched = True
+
+        if not excl_matched:
+            if (
                 not options['keephidden'] and
                 elem.startswith('.') and
                 not (
-                        elem == '.git' or
-                        elem == '.gitignore'
+                    elem == '.git' or
+                    elem == '.gitignore'
                 )
-        ):
-            excl_matched = True
-        if os.path.isdir(f'{path}/{elem}'):
-            if exclusions['folders']:
-                for fld_excl in exclusions['folders']:
-                    if fld_excl in elem:
-                        excl_matched = True
-                        break
-            if dep_folders and elem in dep_folders:
+            ):
                 excl_matched = True
-            if not excl_matched:
-                elem_list.append(elem)
-        else:
-            if exclusions['files']:
-                for file_excl in exclusions['files']:
-                    if file_excl in elem:
-                        excl_matched = True
-                        break
-            if dep_folders and elem in dep_folders:
-                excl_matched = True
-            if not excl_matched:
-                elem_list.append(elem)
+
+        if not excl_matched:
+            elem_list.append(elem)
+
     return elem_list
+
+
+def get_dependency_folders(rules):
+    dep_folders = set()
+    for rule in rules:
+        _dep_folders = rule['actions']['exclude']['dep_folders']
+        if _dep_folders:
+            for folder in _dep_folders:
+                dep_folders.add(folder)
+    return dep_folders
 
 
 def elect(leads):
@@ -324,7 +354,7 @@ def elect(leads):
             else:
                 if lead['total'] == winner[0]['total']:
                     winner.append(lead)
-    return None if len(winner) == 0 else winner
+    return [] if len(winner) == 0 else winner
 
 
 def enforce_limit(history_file, settings):

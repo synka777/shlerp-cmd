@@ -36,8 +36,8 @@ def print_term(step, lvl, message, *args, **kwargs):
     log_type = 'exec'
     if step in ['setup', 'uninstall']:
         log_type = step
-    if len(args) > 0:
-        uid = args[0]
+    if state('uid'):
+        uid = state('uid')
     for kwarg, val in kwargs.items():
         if 'cnt' in kwarg and val != '':
             count = f'[{kwargs["cnt"]}]'
@@ -115,24 +115,24 @@ def upload_archive(archive_path, expire_time):
 def time_until_expiry(expiry_date_str):
     # Parse the expiration date string with UTC timezone
     expiry_date = datetime.strptime(expiry_date_str, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=pytz.UTC)
-    
+
     # Get the current date and time with UTC timezone
     current_date = datetime.now(pytz.UTC)
-    
+
     # Calculate the difference
     difference = expiry_date - current_date
-    
+
     # Get the total seconds from the difference
     total_seconds = difference.total_seconds()
-    
+
     if total_seconds < 0:
         return 'Expired'
-    
+
     # Calculate days, hours, and minutes
     days = total_seconds // 86400
     hours = (total_seconds % 86400) // 3600
     minutes = (total_seconds % 3600) // 60
-    
+
     if days > 1:
         return f'Expires in {days:.0f} days'
     elif days == 1:
