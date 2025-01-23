@@ -18,12 +18,6 @@ So as I'm writting this doc, the full settings file looks like this:
         "no_prune": {
             "max_log_size": 50000
         }
-    },
-    "rules": {
-        "history_limit": {
-	        "frameworks": 2,
-	        "vanilla": 1
-        }
     }
 }
 ```
@@ -50,11 +44,5 @@ lists parameters that are related to the logging behavior of shlerp. It is compo
 Please note, the ```"prune"``` mode is the one that is enabled by default by the ```enabled``` parameter. It is so that you don't have to worry about your logs growing too large.
 
 Setting ```"enabled"``` to false will make shlerp us the "legacy" logging mode that is only useful if you want to keep track of your old backup jobs at all times.
-
-###### 3/ The ```"rules"``` section
-only contains the ```"history_limit"``` subsection.
-It has one setting for each type of rule we want to limit: ```frameworks```, and ```vanilla```.
-It sets the maximum number of rules to store into the history file before switching to the whole ruleset at the rule detection step.
-Please see the doc related to [matching rules](./rulesystem.md) if you need more details on this topic.
 
 [Back to main README](https://github.com/synka777/shlerp-cmd)

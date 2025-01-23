@@ -153,19 +153,6 @@ def deep_scan(proj_fld, rules):
     return rules['vanilla']
 
 
-def prune_tried_rules(_rules, _tmp_file, history_type):
-    """This function is responsible for removing the rules that have already
-    been tried from the list of rules that are left to be tested.
-    :return: A list of rules that have not been tried yet
-    """
-    _remaining_rules = _rules[history_type].copy()
-    for _rule_name in _tmp_file[history_type]:
-        for _rule in _rules[history_type]:
-            if _rule['name'] == _rule_name:
-                _remaining_rules.remove(_rule)
-    return _remaining_rules
-
-
 def excluded(path, exclusions, dep_folders):
     """Check if a path should be excluded based on exclusions and dependency folders."""
     for exclusion in exclusions:

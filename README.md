@@ -17,7 +17,7 @@ Whether you're collaborating on code, archiving your progress, or sharing projec
 Key Benefits:
 
 - Instant Archiving: Create project backups or archives by typing shlerp in your terminal.
-- Language Detection: Automatically detects the project's language and applies tailored exclusion rules.
+- Language Detection: Automatically detects the project's languages/frameworks and applies tailored exclusion rules.
 - Customizable Rules: Define your own file-matching rules to suit unique project needs.
 - Cleaner Backups: Excludes unnecessary or sensitive files (e.g., .env, IDE-specific files) by default while keeping Git-related ones.
 - Flexible Destinations: Easily specify where your archives or backups should go.

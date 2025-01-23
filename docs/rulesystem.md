@@ -22,12 +22,12 @@ So for example; for a rule that describes Javascript or Node.js projects, we wil
 This is how shlerp saves you time.
 
 ### 2. Components used by this system
-#### 1. Matching rules.
-There are two types of matching rules:
 
-- Framework rules:
+The rulesystem works with two rule systems.
+#### Framework rules:
 A full framework rule looks like this. When this type of matching rule is evaluated by shlerp, shlerp will verify the matching criteria that are defined into the "detect" section of the rule.
 The rule that have all of its criteria matched will be elected as the rule to be used when the backup will be done.
+Multiple frameworks can be detected at once.
 ```json
 {
     "name":"React_native",
@@ -70,10 +70,10 @@ When "pattern" is defined, the weight will only be added to the rule score if a 
 Note on the ```folders``` subsection: The "files" subsection of "folders" is there if you make sure that certain files exist within the given folder before considering that the criteria is matched.
 
 
-- Vanilla rules: this type of rule lists file extensions. When shlerp evaluates these rules, each time a file of a given extension is found, a score "weight" is added to the rule.
+#### Vanilla rules:
+This type of rule lists file extensions. When shlerp evaluates these rules, each time a file of a given extension is found, a score "weight" is added to the rule.
 A full Vanilla looks like this. The "detect" section lists file extensions with a weight (score).
-Each time an extension that is declared here is found into the project we want to backup, the total weight of the rule is increased.
-The heaviest rule will be the chosen one.
+Each time a file of a given extension that's declared here is found into the project we want to backup, we add it to the detected rules.
 ```json
 {
     "name":"Python",
@@ -95,46 +95,23 @@ The heaviest rule will be the chosen one.
 }
 ```
 
-#### 2. A history system.
-This history is stored into /tmp/rules_history.json. This temporary file looks like this:
-```json
-{
-    "frameworks": [
-        "Ionic_capacitor",
-        "React_native"
-    ],
-    "vanilla": [
-        "Java",
-        "Python"
-    ]
-}
-```
-
 ### 3. How shlerp uses these components?
 
 So the workflow shlerp follows is like the following:
 ```
 BEGIN
 Framework rules processing:
-- Match a Framework rule from the history:
-	- Go to END
-- Match nothing with Framework rules from the history:
-	- Try again but with the whole ruleset
-		- Framework rule matches:
-			- Go to END
-		- No Framework rule matched:
-			- Go to next step: Vanilla rules processing
-
-Vanilla rules processing:
-- Scan the folder to backup with each Vanilla rule.
-- The rule that scored the most weight (by matching the most files & folders) wins.
+- Scan the files and folders by checking the existence of files, folders and text patterns in files
+	- Each framework rule that has all its criteria matched is added to the list of rules to use with the backup
+- Run a deep scan to make sure we detect all other possible languages, by searching for file extensions:
+	- Each file extension that is found will make its parent rule part of the rule set that'll be applied when backing up.
 END
 ```
-Why is it designed like this? Because of runtime issues. The runtime is greatly enhanced if you don't have to go through the whole ruleset each and every time you run the script, especially if your ruleset is quite large.
+Why is it designed like this? To make sure the detection system does not miss anything. In earlier versions there was a history system that privileged the X last frameworks and languages that were detected, but it became obsolete as soon as the capability to detect multiple languages and folders got added to the shlerp project.
 
 ### 4. How shlerp uses this system
 
-Once we know which rule is the one that matches the best the language of the project we currently want to process, the script will apply the actions that are defined into the elected rule. It will only support files and folders exclusions as I'm writing this.
+Once we know which rules are the ones that matches the best the technologies of the project we currently want to process, the script will apply the actions that are defined into the elected rules. It will only support files and folders exclusions as I'm writing this.
 ```json
 "actions":{
      "exclude":{

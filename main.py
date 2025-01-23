@@ -28,13 +28,12 @@ from tools.piputils import (
 )
 from tools.scan import (
     frameworks_processing,
-    vanilla_processing,
-    prune_tried_rules
+    vanilla_processing
 )
 from tools import utils
 from os.path import exists
 from signal import signal, SIGINT
-from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
+from zipfile import ZipFile, ZIP_DEFLATED
 import threading
 import re
 import os
@@ -52,18 +51,13 @@ def auto_detect(proj_fld):
     matched for this particular language/framework
     :return: dictionary/object representing the rule/language corresponding to the project
     """
-    uid = state('uid')
     v_leads = []
     fw_leads = []
-    recent_rules = remaining_rules = {'frameworks': [], 'vanilla': []}
+    recent_rules = {'frameworks': [], 'vanilla': []}
     history_types = ('frameworks', 'vanilla')
-    framework_matched = False
-    threshold_reached = False
     started = time.time()
 
-    #####################
     # Step 1: Get the rules from the config & temporary file
-
     try:
         with open(f'{get_setup_fld()}/config/rules.json', 'r') as read_file:
             rules = json.load(read_file)
@@ -93,61 +87,16 @@ def auto_detect(proj_fld):
         with open(f'{tmp_fld}/rules_history.json', 'w') as write_tmp:
             write_tmp.write(json.dumps(tmp_file, indent=4))
 
-    #####################
     # Step 2: Evaluate rules from the frameworks section
-    # It makes sense to try to match the frameworks first as they are more specific than the vanilla rules
-
-    # 2-1: Using the history
-    # if len(recent_rules['frameworks']) > 0:
-    #     print_term('scan', 'I', 'Evaluating framework history...', )
-    #     fw_leads = frameworks_processing(recent_rules, proj_fld)
-    #     if fw_leads:
-    #         framework_matched = True
-
-    # 2-2: Using the remaining framework rules that were not present into the history
-    # if not framework_matched:
-    # if len(recent_rules['vanilla']) > 0:
-    #     # First we create a dict that only contains the remaining rules
-    #     remaining_rules['frameworks'] = prune_tried_rules(rules, tmp_file, 'frameworks')
-    # else:
-    #     remaining_rules = rules.copy()
-
-    # Then do the pattern matching: those remaining rules
     print_term('scan', 'I', 'Evaluating framework rules...', )
     fw_leads = frameworks_processing(rules, proj_fld)
-    # fw_leads = frameworks_processing(remaining_rules, proj_fld)
 
-    # if not framework_matched:
-
-    #####################
     # Step 3: Evaluate vanilla rules if the frameworks didn't match anything
-
-    # 3-1: Using the history
-    # if recent_rules:
-    #     print_term('scan', 'I', 'Evaluating vanilla history...', )
-    #     v_leads = vanilla_processing(recent_rules, proj_fld)
-    #     if len(v_leads) > 0:
-    #         threshold_reached = True
-
-    # 3-2: Using the whole ruleset
-    # if not threshold_reached:
-    # remaining_rules['vanilla'] = prune_tried_rules(rules, tmp_file, 'vanilla')
     print_term('scan', 'I', 'Evaluating vanilla rules...', )
     v_leads = vanilla_processing(rules, proj_fld, )
 
-    #####################
     # Step 4: Exit the function
-
-    # framework = True if fw_leads else False
     elapsed_time = time.time() - started  # Calculate elapsed time
-    # elected_rules = v_leads if v_leads else fw_leads if fw_leads else None
-    # if elected_rules:
-    #     # Check if the history in the tmp file can be updated before exiting the function
-    #     if not utils.history_updated(elected_rules, tmp_file, framework):
-    #         print_term('scan', 'W', 'A problem occurred when trying to write in rules_history.json', )
-    #     return elected_rules
-    # else:
-    #     return None
     if state('debug'): print_term('scan:stat', 'D', f'Auto-detection completed in {elapsed_time:.2f} seconds')
     return fw_leads + v_leads
 

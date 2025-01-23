@@ -357,67 +357,6 @@ def elect(leads):
     return [] if len(winner) == 0 else winner
 
 
-def enforce_limit(history_file, settings):
-    """Shortens the history if it is too long compared to history_limit parameters.
-    Can happen if these parameters have been reduced between two shlerp script executions
-    :param history_file: Temporary file containing the history lists
-    :param settings: shlerp settings
-    """
-    history_limits = settings['rules']['history_limit']
-    rule_types = history_limits.keys()
-    # Will cut the history if the length is superior to what is set up in the settings,
-    # rule_types being 'frameworks' and 'vanilla'
-    for rule_type in rule_types:
-        if len(history_file[rule_type]) > history_limits[rule_type]:
-            history_file[rule_type] = history_file[rule_type][:history_limits[rule_type]]
-            with open('tmp/rules_history.json', 'w') as write_tmp:
-                # Updates the history according to the rule type that has been elected
-                write_tmp.write(json.dumps(history_file, indent=4))
-
-
-def history_updated(rules, history_file, framework):
-    """Updates the history with new rules
-    :param rules: List of dicts representing potential winners
-    :param history_file: Temporary file containing the history list
-    :param framework: Boolean that allows to tell the function if the rules to add are vanilla or framework
-    :return: A boolean depending on the outcome of this function
-    """
-    try:
-        settings = get_settings()
-        enforce_limit(history_file, settings)
-        history_limits = settings['rules']['history_limit']
-        rule_type = 'frameworks' if framework else 'vanilla'
-        history = history_file[rule_type]
-        history_limit = history_limits[rule_type]
-
-        for rule in rules:
-            tech = rule['name']
-            # If the current tech (language or framework) is in the history
-            if tech in history:
-                # But it's not the latest, get its position and remove it to add it back in first pos
-                if history.index(tech) != 0:
-                    current_pos = history.index(tech)
-                    history.pop(current_pos)
-                    history.insert(0, tech)
-            else:
-                # If the current language isn't in the list, remove the oldest one if needed and then add it
-                if len(history) == history_limit:
-                    history.pop()
-                history.insert(0, tech)
-
-        # Ensure the history does not exceed the limit
-        if len(history) > history_limit:
-            history = history[:history_limit]
-
-        # Write the updated history back to the file
-        with open('tmp/rules_history.json', 'w') as write_tmp:
-            write_tmp.write(json.dumps(history_file, indent=4))
-
-        return True
-    except Exception as e:
-        return False
-
-
 def req_installed(setup_folder):
     """Attempts to install requirements
     :param setup_folder: str representing the setup folder

@@ -22,12 +22,11 @@ import pytz
 import click
 
 
-def print_term(step, lvl, message, *args, **kwargs):
+def print_term(step, lvl, message, **kwargs):
     """Standardizes the output format
     :param step, short string that indicates to the user the step we are going through
     :param lvl, letter that indicates if the displayed message is an Info, Warning or Error
     :param message, the message we want to print
-    :param *args, (optional) it's only expected to receive a string representing an uid.
     :return: The user input if input is set to True
     """
     uid = None

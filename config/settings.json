@@ -1,6 +1,6 @@
 {
     "rel_logs_path": ".local/logs",
-    "verbose": true,
+    "verbose": false,
     "debug_scan": false,
     "logging": {
         "prune": {
@@ -9,12 +9,6 @@
         },
         "no_prune": {
             "max_log_size": 50000
-        }
-    },
-    "rules": {
-        "history_limit": {
-            "frameworks": 2,
-            "vanilla": 1
         }
     },
     "upload_default": {
