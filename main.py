@@ -1,5 +1,5 @@
 """Backup script
-Copyright (c) 2023 Mathieu BARBE-GAYET
+Copyright (c) 2025 Mathieu BARBE-GAYET
 All Rights Reserved.
 Released under the GNU Affero General Public License v3.0
 """
