@@ -173,18 +173,18 @@ def make_archive(proj_fld, dst_path, rules, options, uid, started, count):
                     else:
                         file_count += 1
                     if output:
-                        print_term('arch', 'I', f'Added: {rel_name}', uid, cnt=count)
+                        print_term('arch', 'I', f'Added: {rel_name}',   cnt=count)
                 except Exception as e:
                     success = False
-                    print_term('arch', 'E', f'Error adding {rel_name}: {e}', uid, cnt=count)
+                    print_term('arch', 'E', f'Error adding {rel_name}: {e}',   cnt=count)
 
         if success:
             append_state('backed_up', proj_fld)
-            print_term('stat', 'I', f'Folders: {fld_count} - Files: {file_count}', uid, cnt=count)
-            print_term('stat', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip', uid, cnt=count)
+            print_term('stat', 'I', f'Folders: {fld_count} - Files: {file_count}',   cnt=count)
+            print_term('stat', 'I', f'✅ Project archived ({"%.2f" % (time.time() - started)}s): {dst_path}.zip',   cnt=count)
         else:
             append_state('failures', proj_fld)
-            print_term('stat', 'W', f'Incomplete archive: {dst_path}.zip', uid, cnt=count)
+            print_term('stat', 'W', f'Incomplete archive: {dst_path}.zip',   cnt=count)
 
 
 def duplicate(proj_fld, dst, rules, options, uid, started, count):
@@ -210,27 +210,27 @@ def duplicate(proj_fld, dst, rules, options, uid, started, count):
             if os.path.isdir(orig):
                 shutil.copytree(orig, full_dst)
                 if exists(full_dst):
-                    print_term('copy', 'I', f'Done: {proj_fld}/{elem}/', uid, cnt=count)
+                    print_term('copy', 'I', f'Done: {proj_fld}/{elem}/',   cnt=count)
                     fld_count += 1
             else:
                 shutil.copy(orig, full_dst)
                 file_count += 1
                 if exists(full_dst):
-                    print_term('copy', 'I', f'Done: {proj_fld}/{elem}', uid, cnt=count)
+                    print_term('copy', 'I', f'Done: {proj_fld}/{elem}',   cnt=count)
         except FileNotFoundError as fnf_error:
-            print_term('copy', 'E', f'File not found: {fnf_error}', uid, cnt=count)
+            print_term('copy', 'E', f'File not found: {fnf_error}',   cnt=count)
             append_state('failures', proj_fld)
         except PermissionError as perm_error:
-            print_term('copy', 'E', f'Permission error: {perm_error}', uid, cnt=count)
+            print_term('copy', 'E', f'Permission error: {perm_error}',   cnt=count)
             append_state('failures', proj_fld)
         except shutil.Error as shutil_error:
-            print_term('copy', 'E', f'Shutil error: {shutil_error}', uid, cnt=count)
+            print_term('copy', 'E', f'Shutil error: {shutil_error}',   cnt=count)
             append_state('failures', proj_fld)
         except Exception as exc:
-            print_term('copy', 'E', f'Unexpected error: {exc}', uid, cnt=count)
+            print_term('copy', 'E', f'Unexpected error: {exc}',   cnt=count)
             append_state('failures', proj_fld)
 
-    print_term('stat', 'I', f'✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/', uid, cnt=count)
+    print_term('stat', 'I', f'✅ Project duplicated ({"%.2f" % (time.time() - started)}s): {dst}/',   cnt=count)
     append_state('backed_up', proj_fld)
 
 
@@ -461,7 +461,7 @@ def main(target, output, archive, upload, rules, batch, noexcl, nogit, keephidde
                 count = f'{(len(state("backed_up")) + len(state("failures"))) + 1}/{state("total")}'
 
             if batch: # Used to display information
-                print_term('arch' if archive else 'copy', 'I', f'Processing: {backup["proj_fld"]}', uid, cnt=count)
+                print_term('arch' if archive else 'copy', 'I', f'Processing: {backup["proj_fld"]}',   cnt=count)
 
             if archive and not backup.get('already_archived'):
                 # If --archive is provided to the script, we use make_archive()
@@ -501,10 +501,10 @@ def main(target, output, archive, upload, rules, batch, noexcl, nogit, keephidde
                         json_resp = response.json()
                         if json_resp['success']:
                             expiry_message = time_until_expiry(json_resp['expires'])
-                            print_term(step, 'I', f'🔗 Single use: {json_resp["link"]} - {expiry_message}', uid, cnt=count)
+                            print_term(step, 'I', f'🔗 Single use: {json_resp["link"]} - {expiry_message}',   cnt=count)
                         else:
                             append_state('upload_failures', backup['proj_fld'])
-                            print_term(step, 'E', f'Upload failed: {json_resp["error"]}', uid, cnt=count)
+                            print_term(step, 'E', f'Upload failed: {json_resp["error"]}',   cnt=count)
 
             if batch:  # Used to display information
                 failed_cnt = len(state('failures')) + len(state('ad_failures'))

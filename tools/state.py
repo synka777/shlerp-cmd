@@ -2,7 +2,7 @@ from tools.utils import get_settings
 
 _state = {
     'uid': '', # UID that represents the current execution. Not meant to be changed after its initial initialization
-    'headless': False,
+    'headless': get_settings()['headless'],
     'debug': get_settings()['debug_scan'],
     'verbose': get_settings()['verbose'] if not get_settings()['debug_scan'] else True, # Defines if the printing function should overwrite the previous term line or not
     'printed': [], # Represents the step we're in, will be used if a SIGINT occurs
