@@ -117,29 +117,25 @@
             }
         },
         {
-            "name":"Spring_Boot",
-            "detect":{
-                "files":[
+            "name": "Spring_Boot",
+            "detect": {
+                "files": [
                     {
-                        "names":["pom.xml", "build.gradle"],
-                        "pattern":null
+                        "names": ["pom.xml", "build.gradle"],
+                        "pattern": "spring-boot"
                     }
                 ],
-                "folders":[
+                "folders": [
                     {
-                        "name":"target",
-                        "files":[ ]
-                    },
-                    {
-                        "name":"build",
-                        "files":[ ]
+                        "name": "src",
+                        "files": ["Application.java", "Application.kt"]
                     }
                 ]
             },
-            "actions":{
-                "exclude":{
-                    "files":[],
-                    "folders":["target", "build"],
+            "actions": {
+                "exclude": {
+                    "files": [],
+                    "folders": ["target", "build"],
                     "dep_folders": []
                 }
             }
@@ -193,7 +189,7 @@
                         "env",
                         ".venv",
                         "virtualenv",
-                        ".virtualenv", 
+                        ".virtualenv",
                         "pipenv",
                         "poetry",
                         "conda_env"
