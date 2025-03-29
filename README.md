@@ -10,7 +10,7 @@
 
 Effortlessly manage, back up, and share your development projects without breaking a sweat! Shlerp eliminates the repetitive and error-prone steps involved in creating clean archives of your work, offering a fast and efficient alternative to traditional GUI methods or manual scripting.
 
-## 🚀 What is Shlerp?
+## ❓ What is Shlerp?
 
 Whether you're collaborating on code, archiving your progress, or sharing projects with others, Shlerp makes it as easy as typing a single command.
 
