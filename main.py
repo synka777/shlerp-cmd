@@ -117,7 +117,7 @@ def make_archive(proj_fld, dst_path, rules, options, uid, started, count):
         success = True
         if state('total') == 1:
             count = ''
-        
+
         #####################
         # Exclusion zone
 
@@ -443,14 +443,14 @@ def main(target, output, archive, upload, rules, batch, noexcl, nogit, keephidde
     else:
         for backup in backup_sources:
             # If the current path to backup is already an archive, just set the  project folder as the backup dest.
-            # The goal is for the rest of the code to just use backup['dst'] instead of using a condition 
+            # The goal is for the rest of the code to just use backup['dst'] instead of using a condition
             backup['dst'] = f'{backup["proj_fld"]}_{utils.get_dt()}' \
             if not backup.get('already_archived') \
             else backup['proj_fld']
     # At this point we should have the dst incorporated into the backup_job list
 
     ###################################
-    # 2 - Data processing, show progress 
+    # 2 - Data processing, show progress
     if not state('debug'):
         incr_state('total', len(backup_sources))
         for backup in backup_sources:

@@ -3,6 +3,7 @@ from os.path import exists
 from uuid import uuid4
 import random
 import subprocess
+import mimetypes
 import re
 import shutil
 import os
@@ -20,13 +21,13 @@ app_details = {}
 # Getter functions
 
 def get_setup_fld():
-        # Resolve the absolute path to the current script
-        script_path = os.path.abspath(__file__)
-        # Get the directory containing this script
-        script_dir = os.path.dirname(script_path)
-        # Get the parent directory of the script
-        parent_dir = os.path.dirname(script_dir)
-        return parent_dir
+    # Resolve the absolute path to the current script
+    script_path = os.path.abspath(__file__)
+    # Get the directory containing this script
+    script_dir = os.path.dirname(script_path)
+    # Get the parent directory of the script
+    parent_dir = os.path.dirname(script_dir)
+    return parent_dir
 
 
 def get_app_details():
@@ -100,12 +101,14 @@ def spinner_animation(stop_event, message):
     sys.stdout.write('\r')  # Clear the spinner line when done
 
 
-def update_state(state, status, path):
-    if status == 0:
-        state['done'].append(path)
-    elif status == 1:
-        state['failed'].append(path)
-    return state
+def remove_previous_line():
+    """ Removes the previous line from the terminal output and move the cursor"""
+    # Move the cursor up by one line
+    sys.stdout.write("\033[F")  # ANSI escape code: Move cursor up one line
+    # Clear the current line
+    sys.stdout.write("\033[K")  # ANSI escape code: Clear from cursor to the end of the line
+    # Ensure output is flushed
+    sys.stdout.flush()
 
 
 def iterate_log_name(log_name):
@@ -164,7 +167,7 @@ def log(msg, log_type):
 
         elif len(log_files) == 1:
             log_file = log_files[0]
-            # If only one log file, open the file in rw mode and prune the jobs that are too old.
+            # If only one log file, open the file in rw mode and prune the entries that are too old.
             with open(f'{log_fld}/{log_files[0]}', 'r') as prune_file:
                 now = datetime.now()
                 valid_entries = []
@@ -226,56 +229,115 @@ def iglob_hidden(*args, **kwargs):
         glob._ishidden = old_ishidden
 
 
-def get_files(path, exclusions, options):
-    """Lists the files contained in a given folder, without symlinks
-    :param path: String referring to the path that needs it's content to be listed
-    :param exclusions: Dictionary containing the files and folders we want to exclude
+def is_archive(file_path):
+    """Check if a given path corresponds to an archive file.
+    :param file_path: Path to the file.
+    :return: True if the file is an archive, False otherwise.
+    """
+    # Ensure the file exists
+    if not os.path.isfile(file_path):
+        return False
+
+    # Check the MIME type of the file
+    mime_type, _ = mimetypes.guess_type(file_path)
+
+    # Common MIME types for archives
+    archive_mime_types = [
+        "application/zip",
+        "application/x-tar",
+        "application/x-gzip",
+        "application/x-bzip2",
+        "application/x-7z-compressed",
+        "application/x-rar-compressed",
+        "application/x-xz",
+    ]
+
+    # Return True if the MIME type matches known archive types
+    return mime_type in archive_mime_types
+
+
+def get_files(path, rules, options):
+    """Lists the files contained in a given folder
+    :param path: String referring to the path that needs its content to be listed
+    :param rules: List of rules containing exclusions
     :param options: dictionary/object containing exclusion options
     :return: A list of files, without any possible node_modules folder
     """
+    exclusions = {
+        "files": set(),
+        "folders": set(),
+        "dep_folders": set()
+    }
+
+    # Handle nogit option
     if options['nogit']:
-        exclusions['folders'].append('.git')
-        exclusions['files'].append('.gitignore')
+        rules.append(
+            {
+                "actions": {
+                    "exclude": {
+                        "files": ['.git'],
+                        "folders": ['.gitignore']
+                    }
+                }
+            }
+        )
+
+    # Collect exclusions from all rules
+    for rule in rules:
+        if 'actions' in rule and 'exclude' in rule['actions']:
+            exclude = rule['actions']['exclude']
+            if 'files' in exclude:
+                exclusions['files'].update(exclude['files'])
+            if 'folders' in exclude:
+                exclusions['folders'].update(exclude['folders'])
+            if 'dep_folders' in exclude:
+                exclusions['dep_folders'].update(exclude['dep_folders'])
+
+    # If the noexcl option is set to True, we return all the files in the folder except the dependency folder
     if options['noexcl']:
         return [
             file for file in os.listdir(path)
-            if (exclusions['dep_folder'] and file != exclusions['dep_folder'])
-                or not exclusions['dep_folder']
+            if (exclusions['dep_folders'] and file not in exclusions['dep_folders'])
+            or not exclusions['dep_folders']
         ]
+
     elem_list = []
-    dep_fld = exclusions['dep_folder']
     for elem in os.listdir(path):
         excl_matched = False
-        if (
+        elem_path = os.path.join(path, elem)
+
+        if any(dep_folder in elem_path for dep_folder in exclusions['dep_folders']):
+            excl_matched = True
+        if any(excl in elem_path for excl in exclusions['folders']):
+            excl_matched = True
+        if any(excl in elem_path for excl in exclusions['files']):
+            excl_matched = True
+
+        if not excl_matched:
+            if (
                 not options['keephidden'] and
                 elem.startswith('.') and
                 not (
-                        elem == '.git' or
-                        elem == '.gitignore'
+                    elem == '.git' or
+                    elem == '.gitignore'
                 )
-        ):
-            excl_matched = True
-        if os.path.isdir(f'{path}/{elem}'):
-            if exclusions['folders']:
-                for fld_excl in exclusions['folders']:
-                    if fld_excl in elem:
-                        excl_matched = True
-                        break
-            if dep_fld and dep_fld in elem:
+            ):
                 excl_matched = True
-            if not excl_matched:
-                elem_list.append(elem)
-        else:
-            if exclusions['files']:
-                for file_excl in exclusions['files']:
-                    if file_excl in elem:
-                        excl_matched = True
-                        break
-            if dep_fld and dep_fld in elem:
-                excl_matched = True
-            if not excl_matched:
-                elem_list.append(elem)
+
+        if not excl_matched:
+            elem_list.append(elem)
+
     return elem_list
+
+
+def get_dependency_folders(rules):
+    dep_folders = set()
+    for rule in rules:
+        _dep_folders = rule['actions']['exclude']['dep_folders']
+        if _dep_folders:
+            for folder in _dep_folders:
+                dep_folders.add(folder)
+    return dep_folders
 
 
 def elect(leads):
@@ -292,82 +354,7 @@ def elect(leads):
             else:
                 if lead['total'] == winner[0]['total']:
                     winner.append(lead)
-    return None if len(winner) == 0 else winner
-
-
-def crawl_for_weight(proj_fld, rules):
-    """Crawl the project to find files matching the extensions we provide to this function
-    :param proj_fld: text, the folder we want to process
-    :param rules: object list containing languages names, extensions to crawl and weights
-    :return: an updated list with some more weight (hopefully)
-    """
-    for rule in rules:
-        if 'total' not in rule.keys():
-            rule['total'] = 0
-        for ext_elem in rule['detect']['extensions']:
-            for ext in ext_elem['names']:
-                for _ in glob.iglob(f'{proj_fld}/**/{ext}', recursive=True):
-                    rule['total'] += ext_elem['weight']
-    return rules
-
-
-def enforce_limit(history_file, settings):
-    """Shortens the history if it is too long compared to history_limit parameters.
-    Can happen if these parameters have been reduced between two shlerp script executions
-    :param history_file: Temporary file containing the history lists
-    :param settings: shlerp settings
-    """
-    history_limits = settings['rules']['history_limit']
-    rule_types = history_limits.keys()
-    # Will cut the history if the length is superior to what is set up in the settings,
-    # rule_types being 'frameworks' and 'vanilla'
-    for rule_type in rule_types:
-        if len(history_file[rule_type]) > history_limits[rule_type]:
-            history_file[rule_type] = history_file[rule_type][:history_limits[rule_type]]
-            with open('tmp/rules_history.json', 'w') as write_tmp:
-                # Updates the history according to the rule type that has been elected
-                write_tmp.write(json.dumps(history_file, indent=4))
-
-
-def history_updated(rule, history_file, framework):
-    """Updates the history with a new rule
-    :param rule: List of dicts representing potential winners
-    :param history_file: Temporary file containing the history list
-    :param framework: Boolean that allows to tell the functon if the rule to add is vanilla or framework
-    :return: A boolean depending on the outcome of this function
-    """
-    current_lang = rule['name']
-    try:
-        settings = get_settings()
-        enforce_limit(history_file, settings)
-        history_limits = settings['rules']['history_limit']
-        rule_type = 'frameworks' if framework else 'vanilla'
-        history = history_file[rule_type]
-        history_limit = history_limits[rule_type]
-        # If the current language is in the history
-        if current_lang in history:
-            # But it's not the latest, get its position and remove it to add it back in first pos
-            if history.index(current_lang) != 0:
-                current_pos = history.index(current_lang)
-                history.pop(current_pos)
-                history.insert(0, current_lang)
-        else:
-            # If the current language isn't in the list, remove the oldest one if needed and then add it
-            if len(history) == history_limit:
-                history.pop()
-            history.insert(0, current_lang)
-
-        with open(f'{get_setup_fld()}/tmp/rules_history.json', 'w') as write_tmp:
-            write_tmp.write(json.dumps(history_file, indent=4))
-            return True
-    except (FileNotFoundError, ValueError):
-        with open(f'{get_setup_fld()}/tmp/rules_history.json', 'a') as write_tmp:
-            write_tmp.write(json.dumps({
-                "rules_history": [current_lang]
-            }))
-            if exists(f'{get_setup_fld()}/tmp/rules_history.json'):
-                return True
-    return False
+    return [] if len(winner) == 0 else winner
 
 
 def req_installed(setup_folder):

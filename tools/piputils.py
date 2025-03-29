@@ -17,6 +17,7 @@ from tools.utils import (
     remove_previous_line
 )
 from click import echo
+import threading
 import requests
 import pytz
 import click
@@ -94,7 +95,7 @@ def upload_archive(archive_path, expire_time):
     stop_event = threading.Event()  # Event to signal the spinner to stop
 
     # Start the spinner in a separate thread
-    spinner_thread = threading.Thread(target=utils.spinner_animation, args=(stop_event, 'Uploading...'))
+    spinner_thread = threading.Thread(target=spinner_animation, args=(stop_event, 'Uploading...'))
     spinner_thread.start()
 
     try:
@@ -147,4 +148,4 @@ def time_until_expiry(expiry_date_str):
         else:
             return f'Expires in 1 hour'
     else:
-        return f"Expires in {minutes:.0f} minutes"
+        return f'Expires in {minutes:.0f} minutes'

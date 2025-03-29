@@ -1,5 +1,5 @@
 ###############################################################
-# This file features the main functions that are used by the 
+# This file features the main functions that are used by the
 # rule detection system to scan the project and find out the
 # language/framework context that is used in a particular project
 
@@ -78,7 +78,7 @@ def frameworks_processing(rules, proj_fld):
             exclusions = excl_obj[type]
             dep_folders = excl_obj.get('dep_folders', []) or []
             name_key = 'name' if type == 'folders' else 'names'
-            
+
             for criteria in _rule['detect'][type]:
                 criteria_names = criteria[name_key] if type == 'files' else [criteria['name']]
                 add = True
