@@ -1,0 +1,28 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[project]
+name = "shlerp-cmd"
+version = "1.5"
+description = "Swift & Smart Backups for Any Code Flavor!"
+authors = [
+    {name = "Mathieu Barbe-Gayet", email = "m.barbegayet@gmail.com"}
+]
+license = {text = "AGPL-3.0-or-later"}
+requires-python = ">=3.8"
+dependencies = [
+    "click==8.1.7",
+    "requests==2.32.3",
+    "pytz==2024.2",
+]
+
+[project.scripts]
+shlerp = "shlerp.bin.shlerp:main"
+
+[project.urls]
+homepage = "https://github.com/synka777/shlerp-cmd"
+
+[tool.poetry]
+packages = [{include = "shlerp"}]
+include = ["shlerp/bin/shlerp"]
