@@ -1,0 +1,4 @@
+setuptools>=59.0.0
+wheel
+twine
+black

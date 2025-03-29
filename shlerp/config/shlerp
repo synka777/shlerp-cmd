@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# Check OS
+if [[ "$(uname)" != "Darwin" && "$(uname)" != "Linux" ]]; then
+    echo "This package only supports macOS and Linux/Unix systems."
+    exit 1
+fi
+
+# Determine the directory of the script itself and go to the project root
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+
+# Move up two levels from venv/bin to reach the project root directory
+setup_dir="$(cd "$script_dir/../.." && pwd)"  # Go up two levels
+
+# Construct the command to use shlerp (pointing to main.py in the project root)
+cmd="python3 ${setup_dir}/shlerp/main.py"
+
+# Initialize variables for -u
+u_flag=false
+u_value=""
+
+# Parse arguments
+remaining_args=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -u|--upload)
+            u_flag=true
+            # Disable shlerp and show a message when upload is requested
+            echo "The upload function is disabled due to API changes."
+            exit 0
+            ;;
+        -h)
+            remaining_args+=("--help")
+            ;;
+        *)
+            remaining_args+=("$1")
+            ;;
+    esac
+    shift
+done
+
+# Add -u if specified
+if $u_flag; then
+    cmd+=" -u $u_value"
+fi
+
+# Append remaining arguments
+for arg in "${remaining_args[@]}"; do
+    cmd+=" \"$arg\""
+done
+
+# Execute the constructed command
+eval $cmd

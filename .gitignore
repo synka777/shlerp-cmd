@@ -5,6 +5,22 @@
 rules_history.json
 rules_history.json
 __pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Build & dist directories
+build/
+dist/
+*.egg-info/
+
+# Pypi-related files
+.tox/
+.nox/
+.coverage
+.hypothesis/
+.pytest_cache/
+.mypy_cache/
 
 ### macOS ###
 # General

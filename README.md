@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/rocket_shlerp.png" alt="shlerp logo" width="250">
+  <img src="shlerp/assets/rocket_shlerp.png" alt="shlerp logo" width="250">
 </div>
 
 # shlerp-cmd
@@ -16,16 +16,16 @@ Whether you're collaborating on code, archiving your progress, or sharing projec
 
 Key Benefits:
 
-- Instant Archiving: Create project backups or archives by typing shlerp in your terminal.
+- Instant Archiving: Create project backups or archives by typing `shlerp` in your terminal.
 - Language Detection: Automatically detects the project's languages/frameworks and applies tailored exclusion rules.
 - Customizable Rules: Define your own file-matching rules to suit unique project needs.
-- Cleaner Backups: Excludes unnecessary or sensitive files (e.g., .env, IDE-specific files) by default while keeping Git-related ones.
+- Cleaner Backups: Excludes unnecessary or sensitive files (e.g., `.env`, IDE-specific files) by default while keeping Git-related ones.
 - Flexible Destinations: Easily specify where your archives or backups should go.
 - Fast Sharing: Generate single-use download links for projects under 2GB—ideal for remote collaboration.
 - Git-Like Simplicity: A perfect alternative when Git feels too heavy-handed for small, quick, or ad-hoc project transfers.
 
 Supported by default:
-Frameworks: Ionic (Cordova/Capacitor), React Native, Flask, Spring boot Laravel
+Frameworks: Ionic (Cordova/Capacitor), React Native, Flask, Spring boot, Laravel
 Programming languages: Python, Javascript, Java, Rust, PHP
 
 ## ⚙️ Requirements:
@@ -33,21 +33,18 @@ Programming languages: Python, Javascript, Java, Rust, PHP
 - Python 3 (highly recommended)
 - Bash or Zsh (Windows shells & file system are not supported)
 
-Note: if you're using another UNIX/Linux shell than bash or zsh, you'll have to find a way to make the function in alias.sh available throughout your whole system.
+Note: If you're using another UNIX/Linux shell than bash or zsh, you'll have to find a way to make the function in `alias.sh` available throughout your whole system.
 
-## 🚀 Quick Installation
+## 📦 Installation from PyPI
 
-1. To install the CLI on your system, open a terminal and make sure you're using bash or zsh:
+You can easily install Shlerp via pip directly from PyPI.
+Please consider installing Shlerp globally, so that you can use it on your whole system !
 
-   ```
-   echo "$SHELL"
-   ```
-2. Clone the repository and install Shlerp:
+To install the latest version of Shlerp, just run the following command:
 
-   ```
-   git clone https://github.com/synka777/shlerp-cmd.git && cd shlerp-cmd && python3 setup.py
-   ```
-3. Restart your terminal, and you're ready to go!
+```bash
+pip install shlerp-cmd
+```
 
 ## 🗄 Use cases
 
@@ -104,8 +101,8 @@ Start simplifying your development life today—just `shlerp` it!
 
 ## 📄 More docs
 
-- [Rule system details](./docs/rulesystem.md)
-- [Settings file syntax](./docs/settings.md)
+- [Rule system details](./shlerp/docs/rulesystem.md)
+- [Settings file syntax](./shlerp/docs/settings.md)
 
 ## 🛠 Full option list
 

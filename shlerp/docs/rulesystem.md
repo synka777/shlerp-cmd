@@ -122,10 +122,10 @@ Once we know which rules are the ones that matches the best the technologies of 
 }
 ```
  - "files" is the list of files we want to exclude from the backup, and "folders" just follows the same principle.
- - "dep_folder" is a special type of folders where are stored your project dependencies. 
+ - "dep_folder" is a special type of folders where are stored your project dependencies.
  When you duplicate a project, in some cases like javascript the data that takes the most time to copy is the well-known "node_modules" dependencies folder, which can grow quite large most of the time.
 
 
 ... and that's it. New detection rules can be added into the rules.json file, you can create new ones for any language or framework you want.
 
-[Back to main README](https://github.com/synka777/shlerp-cmd)
+[Back to main README](../../README.md)
