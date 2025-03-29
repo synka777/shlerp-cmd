@@ -41,10 +41,19 @@ You can easily install Shlerp via pip directly from PyPI.
 Please consider installing Shlerp globally, so that you can use it on your whole system !
 
 To install the latest version of Shlerp, just run the following command:
-
 ```bash
 pip install shlerp-cmd
 ```
+
+### Alternatives: system-wide installation with poetry
+- Using poetry add --global:
+  ```bash
+  poetry add --global shlerp-cmd
+  ```
+- Using poetry run to run the script entry:
+  ```bash
+  poetry run shlerp
+  ```
 
 ## 🗄 Use cases
 
