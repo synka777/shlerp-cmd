@@ -4,33 +4,75 @@ All Rights Reserved.
 Released under the GNU Affero General Public License v3.0
 """
 
+import os
+import sys
+
+# Add parent directory to path when run directly
+if __name__ == "__main__":
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import click
 from click.core import ParameterSource
-from tools.state import (
-    state,
-    set_state,
-    append_state,
-    incr_state,
-    get_printed,
-    force_verbose,
-    activate_headless
-)
-from tools.utils import (
-    get_app_details,
-    get_setup_fld,
-    is_archive,
-    get_settings
-)
-from tools.piputils import (
-    print_term,
-    upload_archive,
-    time_until_expiry,
-)
-from tools.scan import (
-    frameworks_processing,
-    vanilla_processing
-)
-from tools import utils
+if __name__ == "__main__":
+    from shlerp.tools.state import (
+        state,
+        set_state,
+        append_state,
+        incr_state,
+        get_printed,
+        force_verbose,
+        activate_headless
+    )
+else:
+    from .tools.state import (
+        state,
+        set_state,
+        append_state,
+        incr_state,
+        get_printed,
+        force_verbose,
+        activate_headless
+    )
+if __name__ == "__main__":
+    from shlerp.tools.utils import (
+        get_app_details,
+        get_setup_fld,
+        is_archive,
+        get_settings
+    )
+else:
+    from .tools.utils import (
+        get_app_details,
+        get_setup_fld,
+        is_archive,
+        get_settings
+    )
+if __name__ == "__main__":
+    from shlerp.tools.piputils import (
+        print_term,
+        upload_archive,
+        time_until_expiry,
+    )
+else:
+    from .tools.piputils import (
+        print_term,
+        upload_archive,
+        time_until_expiry,
+    )
+if __name__ == "__main__":
+    from shlerp.tools.scan import (
+        frameworks_processing,
+        vanilla_processing
+    )
+else:
+    from .tools.scan import (
+        frameworks_processing,
+        vanilla_processing
+    )
+if __name__ == "__main__":
+    from shlerp.tools import utils
+else:
+    from .tools import utils
 from os.path import exists
 from signal import signal, SIGINT
 from zipfile import ZipFile, ZIP_DEFLATED

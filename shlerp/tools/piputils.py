@@ -3,14 +3,14 @@
 # and won't be used in the setup script as there aren't
 # any virtual environments installed at first.
 
-from tools.state import (
+from .state import (
     state,
     set_printed,
     after_warning,
     x_consecutive_entries_in_step
 )
 from datetime import datetime
-from tools.utils import (
+from .utils import (
     log,
     get_dt,
     spinner_animation,

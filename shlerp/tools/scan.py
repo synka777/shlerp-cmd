@@ -3,9 +3,9 @@
 # rule detection system to scan the project and find out the
 # language/framework context that is used in a particular project
 
-from tools.state import state
-from tools.piputils import print_term
-import tools.utils as utils
+from .state import state
+from .piputils import print_term
+from . import utils
 from os.path import exists
 import glob
 import os

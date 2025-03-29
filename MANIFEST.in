@@ -1,1 +1,1 @@
-include shlerp/config/shlerp
+include shlerp/bin/shlerp.py

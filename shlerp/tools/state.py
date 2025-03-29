@@ -1,4 +1,4 @@
-from tools.utils import get_settings
+from .utils import get_settings
 
 _state = {
     'uid': '', # UID that represents the current execution. Not meant to be changed after its initial initialization
